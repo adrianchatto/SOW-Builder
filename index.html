@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SOW Builder</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">CI</div>
+          <div>
+            <h1>SOW Builder</h1>
+            <p>Deck to statement of work</p>
+          </div>
+        </div>
+
+        <nav class="steps" aria-label="Builder sections">
+          <button class="step is-active" data-panel="intake">1. Intake</button>
+          <button class="step" data-panel="sections">2. Sections</button>
+          <button class="step" data-panel="timeline">3. Plan</button>
+          <button class="step" data-panel="preview">4. Preview</button>
+        </nav>
+
+        <div class="status-box">
+          <span class="status-dot"></span>
+          Draft seeded from Informa Stage 1 deck
+        </div>
+      </aside>
+
+      <main>
+        <div class="file-warning" id="fileWarning">
+          This app must be opened at http://127.0.0.1:5173 for document preview/export to work correctly.
+        </div>
+        <section class="topbar">
+          <div>
+            <p class="eyebrow">CloudInteract workflow</p>
+            <h2>Build a client-ready SOW from a solution deck</h2>
+          </div>
+          <div class="topbar-actions">
+            <button class="ghost-button" id="loadSample">Load Informa sample</button>
+            <button class="primary-button" id="printSow">Export / Print</button>
+          </div>
+        </section>
+
+        <section class="panel is-visible" id="intake">
+          <div class="grid two">
+            <div class="work-panel">
+              <h3>Source Documents</h3>
+              <p class="helper">Upload the solution deck and a reference legal/SOW document. This prototype captures filenames and supports pasted extraction text; the Informa sample is preloaded.</p>
+              <label class="drop-zone">
+                <input id="deckUpload" type="file" accept=".pptx,.pdf,.docx,.txt,.md" />
+                <span>Upload solution deck</span>
+                <strong id="deckName">INF001 - Informa AI Agent v2.pptx</strong>
+              </label>
+              <label class="drop-zone">
+                <input id="sowUpload" type="file" accept=".pdf,.docx,.txt,.md" />
+                <span>Upload reference SOW / legal doc</span>
+                <strong id="sowName">GSTT NDA2026_CloudInteract signed 13.04.26.pdf</strong>
+              </label>
+              <label class="field">
+                <span>Paste extracted notes or overrides</span>
+                <textarea id="sourceNotes" rows="9" placeholder="Paste slide text, meeting notes, pricing assumptions, or scope notes here."></textarea>
+              </label>
+              <button class="secondary-button" id="analyseNotes">Refresh Draft From Inputs</button>
+            </div>
+
+            <div class="work-panel">
+              <h3>Opportunity Setup</h3>
+              <div class="form-grid">
+                <label class="field">
+                  <span>Customer</span>
+                  <input id="customer" value="Informa" />
+                </label>
+                <label class="field">
+                  <span>Project</span>
+                  <input id="project" value="Knowledge Agent - Stage 1 Prototype" />
+                </label>
+                <label class="field">
+                  <span>Supplier</span>
+                  <input id="supplier" value="CloudInteract" />
+                </label>
+                <label class="field">
+                  <span>Fixed price</span>
+                  <input id="price" value="£20,000" />
+                </label>
+                <label class="field">
+                  <span>Start date</span>
+                  <input id="startDate" type="date" value="2026-08-03" />
+                </label>
+                <label class="field">
+                  <span>Elapsed duration</span>
+                  <select id="duration">
+                    <option value="8">8 weeks</option>
+                    <option value="6">6 weeks</option>
+                    <option value="10">10 weeks</option>
+                  </select>
+                </label>
+              </div>
+              <div class="notice">
+                <strong>Reference document note</strong>
+                The supplied PDF is an NDA. I have treated it as legal boilerplate inspiration only, and the questions below ask which clauses belong in the SOW template.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" id="sections">
+          <div class="work-panel">
+            <div class="panel-heading">
+              <div>
+                <h3>Optional Section Review</h3>
+                <p class="helper">Core SOW sections are always included. Use Include / Optional / Exclude for the extra sections that vary by customer or governing contract.</p>
+              </div>
+              <button class="ghost-button" id="resetSections">Reset recommendations</button>
+            </div>
+            <div class="section-list" id="sectionList"></div>
+          </div>
+        </section>
+
+        <section class="panel" id="timeline">
+          <div class="grid timeline-layout">
+            <div class="work-panel">
+              <h3>Plan On A Page</h3>
+              <p class="helper">Edit phase names, sprint labels and durations. The visual updates in the SOW preview.</p>
+              <div id="phaseEditor" class="phase-editor"></div>
+              <button class="secondary-button" id="addPhase">Add phase</button>
+            </div>
+            <div class="work-panel wide">
+              <h3>Visual Plan</h3>
+              <div id="planVisual" class="plan-visual"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" id="preview">
+          <div class="preview-toolbar">
+            <div>
+              <h3>Statement Of Work Preview</h3>
+              <p class="helper">This is generated from the deck content, selected sections and plan dates.</p>
+            </div>
+            <div class="export-actions">
+              <button class="ghost-button" id="downloadHtml">HTML</button>
+              <button class="primary-button" id="downloadDocx">DOCX</button>
+              <button class="primary-button" id="downloadPdf">PDF</button>
+            </div>
+          </div>
+          <article id="sowPreview" class="sow-document"></article>
+        </section>
+      </main>
+    </div>
+
+    <img class="asset-preload cover-art-preload" src="gstt-template-assets/image2.png" alt="" />
+    <script src="app.js"></script>
+  </body>
+</html>
