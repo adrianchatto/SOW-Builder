@@ -153,6 +153,10 @@ function formatDate(value, weekOffset = 0) {
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
+function planWeekCount() {
+  return Math.max(1, Math.min(52, Number(state.duration) || 10));
+}
+
 function bindInputs() {
   [
     "opportunityNumber",
@@ -620,6 +624,7 @@ async function improveText(value) {
 }
 
 function renderPhaseEditor() {
+  const weekCount = planWeekCount();
   $("#phaseEditor").innerHTML = state.phases
     .map(
       (phase, index) => `
@@ -631,8 +636,8 @@ function renderPhaseEditor() {
           <div class="row-controls">
             <label class="field"><span>Phase</span><input data-phase="${index}" data-key="name" value="${escapeHtml(phase.name)}" /></label>
             <label class="field"><span>Sprint</span><input data-phase="${index}" data-key="sprint" value="${escapeHtml(phase.sprint)}" /></label>
-            <label class="field"><span>Start week</span><input data-phase="${index}" data-key="start" type="number" min="1" max="10" value="${phase.start}" /></label>
-            <label class="field"><span>Weeks</span><input data-phase="${index}" data-key="weeks" type="number" min="1" max="10" value="${phase.weeks}" /></label>
+            <label class="field"><span>Start week</span><input data-phase="${index}" data-key="start" type="number" min="1" max="${weekCount}" value="${Math.min(Number(phase.start) || 1, weekCount)}" /></label>
+            <label class="field"><span>Weeks</span><input data-phase="${index}" data-key="weeks" type="number" min="1" max="${weekCount}" value="${Math.min(Number(phase.weeks) || 1, weekCount)}" /></label>
           </div>
           <label class="field"><span>Milestone</span><input data-phase="${index}" data-key="milestone" value="${escapeHtml(phase.milestone)}" /></label>
         </div>`
@@ -643,7 +648,7 @@ function renderPhaseEditor() {
     input.addEventListener("input", () => {
       const phase = state.phases[Number(input.dataset.phase)];
       const key = input.dataset.key;
-      phase[key] = ["start", "weeks"].includes(key) ? Math.max(1, Number(input.value)) : input.value;
+      phase[key] = ["start", "weeks"].includes(key) ? Math.min(weekCount, Math.max(1, Number(input.value))) : input.value;
       renderPlan();
       renderPreview();
     });
@@ -659,9 +664,11 @@ function renderPhaseEditor() {
 }
 
 function renderPlan(target = "#planVisual", compact = false) {
-  const weeks = Array.from({ length: 10 }, (_, index) => index + 1);
+  const weekCount = planWeekCount();
+  const weeks = Array.from({ length: weekCount }, (_, index) => index + 1);
+  const gridTemplate = compact ? `150px repeat(${weekCount}, minmax(0, 1fr))` : `210px repeat(${weekCount}, 1fr)`;
   const header = `
-    <div class="plan-row">
+    <div class="plan-row" style="grid-template-columns:${gridTemplate}">
       <div class="plan-cell plan-header">PHASE</div>
       ${weeks.map((week) => `<div class="plan-cell plan-header">WEEK ${week}</div>`).join("")}
     </div>`;
@@ -675,13 +682,13 @@ function renderPlan(target = "#planVisual", compact = false) {
           const isInRange = week >= phase.start && week < phase.start + phase.weeks;
           if (!isInRange) return `<div class="plan-cell"></div>`;
           if (!isStart) return `<div class="plan-cell"></div>`;
-          const span = Math.min(phase.weeks, 11 - phase.start);
+          const span = Math.min(phase.weeks, weekCount + 1 - phase.start);
           return `<div class="plan-cell"><div class="bar" style="background:${colour}; width: calc(${span * 100}% + ${span - 1}px);">${phase.weeks} ${phase.weeks === 1 ? "week" : "weeks"}</div></div>`;
         })
         .join("");
 
       return `
-        <div class="plan-row">
+        <div class="plan-row" style="grid-template-columns:${gridTemplate}">
           <div class="plan-cell phase-label">
             <div class="phase-icon" style="background:${colour}">${icons[index % icons.length]}</div>
             <div>
@@ -708,7 +715,7 @@ function renderPlan(target = "#planVisual", compact = false) {
     })
     .join("");
 
-  $(target).innerHTML = `<div class="plan-grid ${compact ? "compact" : ""}">${header}${rows}</div><div class="milestones">${milestones}</div>`;
+  $(target).innerHTML = `<div class="plan-grid ${compact ? "compact" : ""}" style="--plan-weeks:${weekCount}">${header}${rows}</div><div class="milestones">${milestones}</div>`;
 }
 
 function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 3) {
@@ -733,14 +740,15 @@ function generatePoapJpegDataUrl() {
   canvas.width = 1800;
   canvas.height = 1080;
   const ctx = canvas.getContext("2d");
-  const weeks = Array.from({ length: 10 }, (_, index) => index + 1);
+  const weekCount = planWeekCount();
+  const weeks = Array.from({ length: weekCount }, (_, index) => index + 1);
   const left = 24;
   const top = 28;
   const labelWidth = 260;
-  const weekWidth = 151;
+  const gridWidth = 1770;
+  const weekWidth = (gridWidth - labelWidth) / weekCount;
   const headerHeight = 78;
   const rowHeight = 124;
-  const gridWidth = labelWidth + weekWidth * 10;
   const gridHeight = headerHeight + rowHeight * state.phases.length;
 
   ctx.fillStyle = "#ffffff";
@@ -756,7 +764,7 @@ function generatePoapJpegDataUrl() {
   weeks.forEach((week, index) => ctx.fillText(`WEEK ${week}`, left + labelWidth + index * weekWidth + weekWidth / 2, top + 47));
 
   ctx.strokeStyle = "#dfe4ea";
-  for (let i = 1; i <= 10; i++) {
+  for (let i = 1; i <= weekCount; i++) {
     const x = left + labelWidth + i * weekWidth;
     ctx.beginPath();
     ctx.moveTo(x, top);
@@ -794,7 +802,8 @@ function generatePoapJpegDataUrl() {
     ctx.font = "18px Arial";
     ctx.fillText(`${phase.weeks} ${phase.weeks === 1 ? "Week" : "Weeks"}`, left + 96, y + 106);
 
-    const span = Math.min(phase.weeks, 11 - phase.start);
+    const span = Math.min(phase.weeks, weekCount + 1 - phase.start);
+    if (span < 1 || phase.start > weekCount) return;
     const barX = left + labelWidth + (phase.start - 1) * weekWidth + 8;
     const barY = y + 42;
     const barW = span * weekWidth - 16;

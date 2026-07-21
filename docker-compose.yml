@@ -2,6 +2,7 @@ services:
   sow-builder:
     build: .
     image: sow-builder:latest
+    pull_policy: build
     container_name: sow-builder
     restart: unless-stopped
     environment:

@@ -142,14 +142,23 @@ def cover_project_name(data):
     return project if project.lower().startswith(customer.lower()) else f"{customer} - {project}"
 
 
-def render_poap_jpeg(phases):
+def plan_week_count(data):
+    try:
+        return max(1, min(52, int(data.get("duration") or 10)))
+    except (TypeError, ValueError):
+        return 10
+
+
+def render_poap_jpeg(phases, week_count=10):
     from PIL import Image, ImageDraw, ImageFont
 
+    week_count = max(1, min(52, int(week_count or 10)))
     width, height = 1800, 1080
     left, top = 24, 28
-    label_width, week_width = 260, 151
+    label_width = 260
+    grid_width = 1770
+    week_width = (grid_width - label_width) / week_count
     header_height, row_height = 78, 124
-    grid_width = label_width + week_width * 10
     grid_height = header_height + row_height * len(phases)
     image = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(image)
@@ -200,9 +209,9 @@ def render_poap_jpeg(phases):
 
     draw.rounded_rectangle((left, top, left + grid_width, top + grid_height), radius=18, fill="white", outline="#dfe4ea", width=2)
     text_center(left + label_width / 2, top + 40, "PHASE", "#111827", f_header)
-    for i in range(10):
+    for i in range(week_count):
         text_center(left + label_width + i * week_width + week_width / 2, top + 40, f"WEEK {i + 1}", "#111827", f_header)
-    for i in range(1, 11):
+    for i in range(1, week_count + 1):
         x = left + label_width + i * week_width
         draw.line((x, top, x, top + grid_height), fill="#dfe4ea", width=2)
     for r in range(len(phases) + 1):
@@ -221,7 +230,9 @@ def render_poap_jpeg(phases):
 
         start = int(phase.get("start", 1))
         duration = int(phase.get("weeks", 1))
-        span = min(duration, 11 - start)
+        span = min(duration, week_count + 1 - start)
+        if span < 1 or start > week_count:
+            continue
         bar_x = left + label_width + (start - 1) * week_width + 8
         bar_y = y + 42
         bar_w = span * week_width - 16
@@ -586,7 +597,7 @@ def build_docx(data):
     doc.add_heading("4 Project Plan", level=1)
     doc.add_heading("4.1 Plan On A Page", level=2)
     doc.add_paragraph("The plan below is indicative and assumes timely access, data, stakeholder availability and governance decisions.")
-    doc.add_picture(BytesIO(render_poap_jpeg(data.get("phases", []))), width=Inches(7.0))
+    doc.add_picture(BytesIO(render_poap_jpeg(data.get("phases", []), plan_week_count(data))), width=Inches(7.0))
     doc.add_heading("5 Deliverables And Acceptance Criteria", level=1)
     add_table([
         ["Deliverable", "Acceptance basis"],
@@ -613,12 +624,13 @@ def build_docx(data):
     return buffer.getvalue()
 
 
-def add_docx_plan(doc, phases, shade):
+def add_docx_plan(doc, phases, shade, week_count=10):
     from docx.enum.table import WD_TABLE_ALIGNMENT
     from docx.shared import Inches
 
-    weeks = list(range(1, 11))
-    table = doc.add_table(rows=len(phases) + 1, cols=11)
+    week_count = max(1, min(52, int(week_count or 10)))
+    weeks = list(range(1, week_count + 1))
+    table = doc.add_table(rows=len(phases) + 1, cols=week_count + 1)
     try:
         table.style = "Table Grid"
     except KeyError:
@@ -703,7 +715,7 @@ def build_pdf(data):
     heading("4 Project Plan")
     heading("4.1 Plan On A Page", level=3)
     story.append(Paragraph("The plan below is indicative and assumes timely access, data, stakeholder availability and governance decisions.", styles["BodyText"]))
-    story.append(Image(BytesIO(render_poap_jpeg(data.get("phases", []))), width=180 * mm, height=108 * mm))
+    story.append(Image(BytesIO(render_poap_jpeg(data.get("phases", []), plan_week_count(data))), width=180 * mm, height=108 * mm))
     heading("5 Deliverables And Acceptance Criteria")
     story.append(make_pdf_table([
         ["Deliverable", "Acceptance basis"],
@@ -801,12 +813,13 @@ def make_pdf_table(rows, widths, bordered=False):
     return table
 
 
-def make_pdf_plan(phases):
+def make_pdf_plan(phases, week_count=10):
     from reportlab.lib import colors
     from reportlab.lib.units import mm
     from reportlab.platypus import Table, TableStyle
 
-    rows = [["Phase"] + [f"W{i}" for i in range(1, 11)]]
+    week_count = max(1, min(52, int(week_count or 10)))
+    rows = [["Phase"] + [f"W{i}" for i in range(1, week_count + 1)]]
     styles = [
         ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#DFE4EA")),
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F6F8FB")),
@@ -817,9 +830,9 @@ def make_pdf_plan(phases):
     for r, phase in enumerate(phases, 1):
         duration = int(phase.get("weeks", 1))
         start = int(phase.get("start", 1))
-        rows.append([f"{phase.get('name', '')}\n{phase.get('sprint', '')}"] + [""] * 10)
+        rows.append([f"{phase.get('name', '')}\n{phase.get('sprint', '')}"] + [""] * week_count)
         colour = colors.HexColor("#" + PHASE_COLOURS[(r - 1) % len(PHASE_COLOURS)])
-        for week in range(start, min(11, start + duration)):
+        for week in range(start, min(week_count + 1, start + duration)):
             rows[r][week] = f"{duration}w" if week == start else ""
             styles.append(("BACKGROUND", (week, r), (week, r), colour))
             styles.append(("TEXTCOLOR", (week, r), (week, r), colors.white))

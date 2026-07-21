@@ -567,13 +567,13 @@ body.is-file-mode .file-warning {
 
 .plan-row {
   display: grid;
-  grid-template-columns: 210px repeat(10, 1fr);
+  grid-template-columns: 210px repeat(var(--plan-weeks, 10), 1fr);
   min-height: 82px;
   border-top: 1px solid var(--line);
 }
 
 .preview-plan .plan-row {
-  grid-template-columns: 150px repeat(10, minmax(0, 1fr));
+  grid-template-columns: 150px repeat(var(--plan-weeks, 10), minmax(0, 1fr));
   min-height: 66px;
 }
 
