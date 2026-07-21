@@ -1,0 +1,17 @@
+services:
+  sow-builder:
+    build: .
+    image: sow-builder:latest
+    container_name: sow-builder
+    restart: unless-stopped
+    environment:
+      SOW_BUILDER_HOST: 0.0.0.0
+      SOW_BUILDER_PORT: 5173
+      SOW_BUILDER_DB: /data/sow_builder.db
+    ports:
+      - "3025:5173"
+    volumes:
+      - sow_builder_data:/data
+
+volumes:
+  sow_builder_data:
