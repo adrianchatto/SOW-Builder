@@ -63,6 +63,7 @@ const sample = {
   version: "v0.1",
   versionComment: "First draft",
   price: "£20,000",
+  commercialDiscount: "",
   startDate: "2026-08-03",
   duration: 8,
   overview:
@@ -163,12 +164,17 @@ function bindInputs() {
     "version",
     "versionComment",
     "price",
+    "commercialDiscount",
     "startDate",
     "duration"
   ].forEach((id) => {
     $(`#${id}`).addEventListener("input", () => {
       state[id] = id === "duration" ? Number($(`#${id}`).value) : $(`#${id}`).value;
-      renderAll();
+      if (id === "commercialDiscount") {
+        renderPreview();
+      } else {
+        renderAll();
+      }
     });
   });
 
@@ -337,6 +343,7 @@ function syncForm() {
     "version",
     "versionComment",
     "price",
+    "commercialDiscount",
     "startDate",
     "duration",
     ...mandatoryContent.map((item) => item.id)
@@ -347,13 +354,60 @@ function syncForm() {
 }
 
 function commercialRows() {
+  const discount = String(state.commercialDiscount || "").trim();
   const rows = (state.commercialMilestones || [])
     .map((row) => ({
       title: String(row.title || "").trim(),
       amount: String(row.amount || "").trim()
     }))
     .filter((row) => row.title || row.amount);
-  return rows.length ? rows : [{ title: "TBD", amount: "TBD" }];
+  const baseRows = rows.length ? rows : [{ title: "Fixed price", amount: String(state.price || "").trim() || "TBD" }];
+  const subtotal = sumCommercialAmounts(baseRows);
+  const discountAmount = parseCommercialAmount(discount);
+  const output = [...baseRows];
+
+  if (subtotal !== null && (baseRows.length > 1 || discount)) {
+    output.push({ title: "Subtotal", amount: formatCommercialAmount(subtotal), summary: true });
+  }
+  if (discount) {
+    output.push({ title: "Discount", amount: discountAmount === null ? discount : `-${formatCommercialAmount(discountAmount)}`, summary: true });
+  }
+  if (subtotal !== null) {
+    output.push({
+      title: "Total",
+      amount: formatCommercialAmount(Math.max(0, subtotal - (discountAmount || 0))),
+      summary: true,
+      total: true
+    });
+  }
+  return output.length ? output : [{ title: "TBD", amount: "TBD" }];
+}
+
+function parseCommercialAmount(value) {
+  const raw = String(value || "").trim();
+  if (!raw || /\btbd\b/i.test(raw)) return null;
+  const match = raw.replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
+  return match ? Math.abs(Number(match[0])) : null;
+}
+
+function sumCommercialAmounts(rows) {
+  let total = 0;
+  let numericRows = 0;
+  for (const row of rows) {
+    const amount = parseCommercialAmount(row.amount);
+    if (amount === null) continue;
+    total += amount;
+    numericRows += 1;
+  }
+  return numericRows ? total : null;
+}
+
+function formatCommercialAmount(value) {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    maximumFractionDigits: Number.isInteger(value) ? 0 : 2
+  }).format(value);
 }
 
 async function loadSavedSows() {
@@ -538,6 +592,7 @@ function renderCommercialEditor() {
       renderAll();
     });
   });
+
 }
 
 function tidyText(value) {
@@ -569,6 +624,10 @@ function renderPhaseEditor() {
     .map(
       (phase, index) => `
         <div class="phase-row">
+          <div class="phase-row-header">
+            <strong>Plan section ${index + 1}</strong>
+            <button class="ghost-button remove-phase" type="button" data-remove-phase="${index}" ${state.phases.length === 1 ? "disabled" : ""}>Remove</button>
+          </div>
           <div class="row-controls">
             <label class="field"><span>Phase</span><input data-phase="${index}" data-key="name" value="${escapeHtml(phase.name)}" /></label>
             <label class="field"><span>Sprint</span><input data-phase="${index}" data-key="sprint" value="${escapeHtml(phase.sprint)}" /></label>
@@ -587,6 +646,14 @@ function renderPhaseEditor() {
       phase[key] = ["start", "weeks"].includes(key) ? Math.max(1, Number(input.value)) : input.value;
       renderPlan();
       renderPreview();
+    });
+  });
+
+  $$("#phaseEditor .remove-phase").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (state.phases.length <= 1) return;
+      state.phases.splice(Number(button.dataset.removePhase), 1);
+      renderAll();
     });
   });
 }
@@ -1015,7 +1082,7 @@ function renderPreview() {
     <table class="bordered-table">
       <tr><th>Milestone</th><th>Amount</th></tr>
       ${commercialRows()
-        .map((row) => `<tr><td>${escapeHtml(row.title)}</td><td>${escapeHtml(row.amount)}</td></tr>`)
+        .map((row) => `<tr class="${row.total ? "commercial-total-row" : row.summary ? "commercial-summary-row" : ""}"><td>${escapeHtml(row.title)}</td><td>${escapeHtml(row.amount)}</td></tr>`)
         .join("")}
     </table>
 

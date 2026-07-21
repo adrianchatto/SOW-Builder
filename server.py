@@ -382,8 +382,45 @@ def commercial_rows(data):
         if title or amount:
             rows.append([title or "TBD", amount or "TBD"])
     if not rows:
-        rows.append(["TBD", "TBD"])
+        rows.append(["Fixed price", str(data.get("price") or "").strip() or "TBD"])
+    discount = str(data.get("commercialDiscount") or "").strip()
+    subtotal = sum_commercial_amounts(rows)
+    if subtotal is not None and (len(rows) > 1 or discount):
+        rows.append(["Subtotal", format_commercial_amount(subtotal)])
+    if discount:
+        discount_amount = parse_commercial_amount(discount)
+        rows.append(["Discount", discount if discount_amount is None else f"-{format_commercial_amount(discount_amount)}"])
+    if subtotal is not None:
+        discount_amount = parse_commercial_amount(discount) if discount else 0
+        rows.append(["Total", format_commercial_amount(max(0, subtotal - (discount_amount or 0)))])
     return [["Milestone", "Amount"]] + rows
+
+
+def parse_commercial_amount(value):
+    raw = str(value or "").strip()
+    if not raw or re.search(r"\btbd\b", raw, re.I):
+        return None
+    match = re.search(r"-?\d+(?:\.\d+)?", raw.replace(",", ""))
+    return abs(float(match.group(0))) if match else None
+
+
+def sum_commercial_amounts(rows):
+    total = 0.0
+    numeric_rows = 0
+    for _, amount in rows:
+        value = parse_commercial_amount(amount)
+        if value is None:
+            continue
+        total += value
+        numeric_rows += 1
+    return total if numeric_rows else None
+
+
+def format_commercial_amount(value):
+    amount = float(value)
+    if amount.is_integer():
+        return f"£{int(amount):,}"
+    return f"£{amount:,.2f}"
 
 
 def add_word_toc(doc):

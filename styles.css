@@ -526,6 +526,22 @@ body.is-file-mode .file-warning {
   gap: 10px;
 }
 
+.phase-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.phase-row-header strong {
+  font-size: 0.9rem;
+}
+
+.remove-phase:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .phase-row .row-controls {
   display: grid;
   grid-template-columns: 1.4fr 0.8fr 0.7fr 0.7fr;
@@ -887,6 +903,16 @@ body.is-file-mode .file-warning {
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 0.84rem;
+}
+
+.commercial-summary-row td {
+  font-weight: 800;
+  background: #f9fafb;
+}
+
+.commercial-total-row td {
+  font-weight: 900;
+  background: #eef2ff;
 }
 
 .tag {
