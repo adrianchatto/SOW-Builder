@@ -244,8 +244,8 @@ def render_cover_jpeg(data):
         for index, item in enumerate(lines[:max_lines]):
             draw.text((x, y + index * line_height), item, fill=fill, font=fnt)
 
-    wrap(cover_project_name(data), 28, 960, 980, 118, font(92), "white", max_lines=4)
-    draw.text((34, 1355), "Statement of Work", fill="white", font=font(34))
+    wrap(cover_project_name(data), 28, 960, 900, 118, font(92), "white", max_lines=4)
+    draw.text((34, 1355), data.get("subtitle") or "Statement of Work", fill="white", font=font(34))
 
     buffer = BytesIO()
     image.save(buffer, format="JPEG", quality=94)
@@ -321,6 +321,25 @@ def version_rows(data):
     ]
 
 
+def document_detail_rows(data):
+    return [
+        ["Client", data.get("customer") or ""],
+        ["Date Created", "21 Jul 2026"],
+        ["Document Type", "Statement of Work (SOW)"],
+        ["Document Name", data.get("project") or ""],
+        ["Author", data.get("author") or data.get("supplier") or "CloudInteract"],
+    ]
+
+
+def split_lines(value):
+    return [line.strip() for line in str(value or "").splitlines() if line.strip()]
+
+
+def document_file_base(data):
+    parts = [data.get("opportunityNumber"), data.get("customer"), data.get("project")]
+    return "-".join([safe_name(part) for part in parts if str(part or "").strip()])
+
+
 def build_docx(data):
     from docx import Document
     from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -329,10 +348,7 @@ def build_docx(data):
     from docx.oxml.ns import qn
     from docx.shared import Inches, Pt, RGBColor
 
-    doc = Document(str(TEMPLATE_DOCX)) if TEMPLATE_DOCX.exists() else Document()
-    body = doc._body._element
-    for child in list(body)[:-1]:
-        body.remove(child)
+    doc = Document()
 
     section = doc.sections[0]
     section.top_margin = Inches(0.7)
@@ -377,51 +393,86 @@ def build_docx(data):
         remove_table_borders(table)
         table.alignment = WD_TABLE_ALIGNMENT.LEFT
 
+    def set_cell_text(cell, value, bold=False):
+        cell.text = str(value)
+        if bold:
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    run.bold = True
+
+    def add_table(rows, bordered=False):
+        table = doc.add_table(rows=len(rows), cols=max(len(row) for row in rows))
+        table.alignment = WD_TABLE_ALIGNMENT.LEFT
+        if bordered:
+            try:
+                table.style = "Table Grid"
+            except KeyError:
+                pass
+        else:
+            format_table(table)
+        for r, row in enumerate(rows):
+            for c, cell_value in enumerate(row):
+                set_cell_text(table.cell(r, c), cell_value, r == 0)
+        return table
+
+    def add_paragraphs(text):
+        for line in split_lines(text):
+            doc.add_paragraph(line)
+
+    def add_bullets(text):
+        for line in split_lines(text):
+            doc.add_paragraph(line, style="List Bullet")
+
     doc.add_picture(BytesIO(render_cover_jpeg(data)), width=Inches(7.05))
 
     doc.add_page_break()
+    doc.add_heading("Document Details", level=1)
+    add_table(document_detail_rows(data))
     doc.add_heading("Document Revision History", level=1)
-    table = doc.add_table(rows=2, cols=4)
-    format_table(table)
-    for r, row in enumerate(version_rows(data)):
-        for c, cell_value in enumerate(row):
-            cell = table.cell(r, c)
-            cell.text = str(cell_value)
-            if r == 0:
-                for paragraph in cell.paragraphs:
-                    for run in paragraph.runs:
-                        run.bold = True
-
+    add_table(version_rows(data))
     doc.add_heading("Proprietary Notice", level=1)
-    doc.add_paragraph("© Copyright 2026 CloudInteract Holdings All rights reserved. CloudInteract Ltd Registered Office: 4 Parkside Court, Greenhough Road, Lichfield, Staffordshire, United Kingdom, WS13 7FE.")
-    doc.add_paragraph("The information and data contained or referenced in this Statement of Work document constitute confidential information of CloudInteract Holdings or its affiliates or subsidiaries.")
+    add_paragraphs(data.get("proprietaryNotice"))
+    doc.add_page_break()
 
-    for idx, (title, items) in enumerate(section_blocks(data), 1):
-        doc.add_heading(title, level=1)
-        for kind, value in items:
-            if kind == "p":
-                doc.add_paragraph(value)
-            elif kind == "h3":
-                doc.add_heading(value, level=3)
-            elif kind == "ul":
-                for item in value:
-                    doc.add_paragraph(str(item), style="List Paragraph")
-            elif kind == "table":
-                if not value:
-                    continue
-                table = doc.add_table(rows=len(value), cols=max(len(row) for row in value))
-                format_table(table)
-                for r, row in enumerate(value):
-                    for c, cell_value in enumerate(row):
-                        cell = table.cell(r, c)
-                        cell.text = str(cell_value)
-                        if r == 0:
-                            for paragraph in cell.paragraphs:
-                                for run in paragraph.runs:
-                                    run.bold = True
-            elif kind == "poap":
-                image_bytes = render_poap_jpeg(value)
-                doc.add_picture(BytesIO(image_bytes), width=Inches(7.0))
+    doc.add_heading("1 Agreement", level=1)
+    add_paragraphs(data.get("agreementText"))
+    doc.add_heading("2 Background", level=1)
+    doc.add_heading("2.1 Customer Overview", level=3)
+    add_paragraphs(data.get("backgroundOverview"))
+    doc.add_heading("2.2 Customer Requirements", level=3)
+    add_paragraphs(data.get("backgroundRequirements"))
+    doc.add_heading("3 Scope", level=1)
+    doc.add_heading("3.1 Included", level=3)
+    add_bullets(data.get("scopeIncluded"))
+    doc.add_heading("3.2 Boundaries And Exclusions", level=3)
+    add_bullets(data.get("scopeExclusions"))
+    doc.add_heading("4 Project Plan", level=1)
+    doc.add_heading("4.1 Plan On A Page", level=3)
+    doc.add_paragraph("The plan below is indicative and assumes timely access, data, stakeholder availability and governance decisions.")
+    doc.add_picture(BytesIO(render_poap_jpeg(data.get("phases", []))), width=Inches(7.0))
+    doc.add_heading("5 Deliverables And Acceptance Criteria", level=1)
+    add_table([
+        ["Deliverable", "Acceptance basis"],
+        ["Working reasoning-agent prototype in Informa AWS sandbox", "Demonstrated against the selected software-request journey using dev ServiceNow and representative knowledge sources."],
+        ["Microsoft Teams colleague experience", "Stakeholders can request software in plain language and receive resolution, approval routing or escalation updates in Teams."],
+        ["ServiceNow and knowledge integrations", "Prototype can check entitlement, duplicate requests and route/document work through supported public APIs."],
+        ["Handover pack and Stage 2 recommendations", "Informa IT receives architecture notes, run considerations, backlog and recommended pilot/production next steps."],
+    ], bordered=True)
+    doc.add_heading("6 Success Metrics", level=1)
+    add_bullets(data.get("successMeasuresText"))
+    doc.add_heading("7 Dependencies", level=1)
+    add_bullets(data.get("dependenciesText"))
+    doc.add_heading("Open Questions To Confirm", level=3)
+    for item in data.get("openQuestions", []):
+        doc.add_paragraph(str(item), style="List Bullet")
+    doc.add_heading("8 Change Control", level=1)
+    add_paragraphs(data.get("changeControlText"))
+    doc.add_heading("9 Data Protection, Security And AI Governance", level=1)
+    add_paragraphs(data.get("securityText"))
+    doc.add_heading("Commercials", level=1)
+    add_paragraphs(data.get("commercialsText"))
+    doc.add_heading("Signature", level=1)
+    add_table([[f"For {data.get('customer', '')}", f"For {data.get('supplier', '')}"], ["Name:\n\nTitle:\n\nDate:", "Name:\n\nTitle:\n\nDate:"]])
 
     buffer = BytesIO()
     doc.save(buffer)
@@ -466,45 +517,93 @@ def build_pdf(data):
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import Image, PageBreak, SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from xml.sax.saxutils import escape
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=14 * mm, leftMargin=14 * mm, topMargin=14 * mm, bottomMargin=14 * mm)
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(name="Brand", parent=styles["Normal"], textColor=colors.HexColor("#5B2EE6"), fontName="Helvetica-Bold", fontSize=14, spaceAfter=14))
     styles.add(ParagraphStyle(name="Small", parent=styles["Normal"], fontSize=8, leading=10))
-    story = [
-        Image(BytesIO(render_cover_jpeg(data)), width=182 * mm, height=255 * mm),
-        PageBreak(),
-    ]
-    story.append(Paragraph("Document Revision History", styles["Heading2"]))
-    story.append(make_pdf_table(version_rows(data), None))
-    story.append(Spacer(1, 10))
-    story.append(Paragraph("Proprietary Notice", styles["Heading2"]))
-    story.append(Paragraph("© Copyright 2026 CloudInteract Holdings All rights reserved. CloudInteract Ltd Registered Office: 4 Parkside Court, Greenhough Road, Lichfield, Staffordshire, United Kingdom, WS13 7FE.", styles["BodyText"]))
-    story.append(Paragraph("The information and data contained or referenced in this Statement of Work document constitute confidential information of CloudInteract Holdings or its affiliates or subsidiaries.", styles["BodyText"]))
+    story = [Image(BytesIO(render_cover_jpeg(data)), width=182 * mm, height=255 * mm), PageBreak()]
 
-    for title, items in section_blocks(data):
+    def heading(text, level=2):
         story.append(Spacer(1, 8))
-        story.append(Paragraph(title, styles["Heading2"]))
-        for kind, value in items:
-            if kind == "p":
-                story.append(Paragraph(value, styles["BodyText"]))
-            elif kind == "h3":
-                story.append(Paragraph(value, styles["Heading3"]))
-            elif kind == "ul":
-                for item in value:
-                    story.append(Paragraph(str(item), styles["Bullet"]))
-            elif kind == "table":
-                story.append(make_pdf_table(value, None))
-            elif kind == "poap":
-                poap = Image(BytesIO(render_poap_jpeg(value)), width=180 * mm, height=108 * mm)
-                story.append(poap)
+        story.append(Paragraph(escape(text), styles["Heading2" if level == 2 else "Heading3"]))
+
+    def paras(text):
+        for line in split_lines(text):
+            story.append(Paragraph(escape(line), styles["BodyText"]))
+
+    def bullets(text):
+        for line in split_lines(text):
+            story.append(Paragraph(escape(line), styles["Bullet"]))
+
+    heading("Document Details")
+    story.append(make_pdf_table(document_detail_rows(data), None))
+    heading("Document Revision History")
+    story.append(make_pdf_table(version_rows(data), None))
+    heading("Proprietary Notice")
+    paras(data.get("proprietaryNotice"))
+    story.append(PageBreak())
+
+    heading("1 Agreement")
+    paras(data.get("agreementText"))
+    heading("2 Background")
+    heading("2.1 Customer Overview", level=3)
+    paras(data.get("backgroundOverview"))
+    heading("2.2 Customer Requirements", level=3)
+    paras(data.get("backgroundRequirements"))
+    heading("3 Scope")
+    heading("3.1 Included", level=3)
+    bullets(data.get("scopeIncluded"))
+    heading("3.2 Boundaries And Exclusions", level=3)
+    bullets(data.get("scopeExclusions"))
+    heading("4 Project Plan")
+    heading("4.1 Plan On A Page", level=3)
+    story.append(Paragraph("The plan below is indicative and assumes timely access, data, stakeholder availability and governance decisions.", styles["BodyText"]))
+    story.append(Image(BytesIO(render_poap_jpeg(data.get("phases", []))), width=180 * mm, height=108 * mm))
+    heading("5 Deliverables And Acceptance Criteria")
+    story.append(make_pdf_table([
+        ["Deliverable", "Acceptance basis"],
+        ["Working reasoning-agent prototype in Informa AWS sandbox", "Demonstrated against the selected software-request journey using dev ServiceNow and representative knowledge sources."],
+        ["Microsoft Teams colleague experience", "Stakeholders can request software in plain language and receive resolution, approval routing or escalation updates in Teams."],
+        ["ServiceNow and knowledge integrations", "Prototype can check entitlement, duplicate requests and route/document work through supported public APIs."],
+        ["Handover pack and Stage 2 recommendations", "Informa IT receives architecture notes, run considerations, backlog and recommended pilot/production next steps."],
+    ], None, bordered=True))
+    heading("6 Success Metrics")
+    bullets(data.get("successMeasuresText"))
+    heading("7 Dependencies")
+    bullets(data.get("dependenciesText"))
+    heading("Open Questions To Confirm", level=3)
+    for item in data.get("openQuestions", []):
+        story.append(Paragraph(escape(str(item)), styles["Bullet"]))
+    heading("8 Change Control")
+    paras(data.get("changeControlText"))
+    heading("9 Data Protection, Security And AI Governance")
+    paras(data.get("securityText"))
+
+    optional_items = [
+        ("ipDetail", "10 Intellectual Property And Reuse", "Unless otherwise agreed in signed commercial terms, the customer owns customer-specific outputs and data supplied by the customer. CloudInteract retains ownership of pre-existing tools, methods, know-how, templates and reusable accelerators used to deliver the work."),
+        ("confidentiality", "11 Confidentiality", "Each party will protect confidential information disclosed in connection with this SOW. Where a separate NDA or master agreement exists, that agreement will take precedence over this summary wording."),
+        ("assurance", "12 Assurance And Oversight", "The prototype will include outcome verification, human review for uncertain or failed cases, audit logging for agent decisions and visibility of agreed success metrics. Any standing auto-approval rule must be agreed before use."),
+        ("stage2", "13 Stage 2 Roadmap", "Following Stage 1, the recommended path is a controlled pilot with a friendly cohort, then production hardening, phased rollout by segment, additional channels and expansion into further use cases."),
+        ("legalBoilerplate", "14 Extended Legal Boilerplate", "Final legal terms should confirm warranty, liability, assignment, third-party rights, counterparts, governing law and jurisdiction, either in this SOW or in the governing master services agreement."),
+    ]
+    for key, title, text in optional_items:
+        if optional_enabled(data, key):
+            heading(title)
+            story.append(Paragraph(escape(text), styles["BodyText"]))
+
+    heading("Commercials")
+    paras(data.get("commercialsText"))
+    heading("Signature")
+    story.append(make_pdf_table([[f"For {data.get('customer', '')}", f"For {data.get('supplier', '')}"], ["Name:\n\nTitle:\n\nDate:", "Name:\n\nTitle:\n\nDate:"]], None))
 
     doc.build(story, onFirstPage=lambda canvas, doc: None, onLaterPages=pdf_footer)
     return buffer.getvalue()
 
 
-def make_pdf_table(rows, widths):
+def make_pdf_table(rows, widths, bordered=False):
     from reportlab.lib import colors
     from reportlab.lib.units import mm
     from reportlab.platypus import Table, TableStyle
@@ -513,15 +612,22 @@ def make_pdf_table(rows, widths):
         column_count = max(len(row) for row in rows)
         widths = [170 * mm / column_count] * column_count
     table = Table(rows, colWidths=widths, hAlign="LEFT")
-    table.setStyle(TableStyle([
+    commands = [
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("LINEBELOW", (0, 0), (-1, -1), 0.25, colors.HexColor("#EEF1F5")),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("LEADING", (0, 0), (-1, -1), 10),
         ("TOPPADDING", (0, 0), (-1, -1), 5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-    ]))
+    ]
+    if bordered:
+        commands.extend([
+            ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD3DF")),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F6F8FB")),
+        ])
+    else:
+        commands.append(("LINEBELOW", (0, 0), (-1, -1), 0.25, colors.HexColor("#EEF1F5")))
+    table.setStyle(TableStyle(commands))
     return table
 
 
@@ -628,7 +734,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(payload)
             return
 
-        filename = f"{safe_name(data.get('customer', 'Customer'))}-SOW-draft.{extension}"
+        filename = f"{document_file_base(data)}.{extension}"
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Disposition", f'attachment; filename="{filename}"')

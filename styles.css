@@ -332,6 +332,52 @@ body.is-file-mode .file-warning {
   margin-top: 18px;
 }
 
+.mandatory-editor {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.mandatory-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.mandatory-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.mandatory-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.mandatory-card-header label {
+  font-weight: 850;
+}
+
+.mandatory-card textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  border: 1px solid #cbd3df;
+  border-radius: 8px;
+  padding: 10px 11px;
+  color: var(--ink);
+}
+
+.improve-button {
+  padding: 8px 10px;
+  font-size: 0.86rem;
+}
+
 .section-card {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -633,6 +679,7 @@ body.is-file-mode .file-warning {
 
 .content-page {
   padding: 54px 64px;
+  min-height: 1262px;
 }
 
 .cover-image {
@@ -708,6 +755,21 @@ body.is-file-mode .file-warning {
   background: transparent;
   color: #111827;
   font-weight: 800;
+}
+
+.sow-document .bordered-table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.sow-document .bordered-table th,
+.sow-document .bordered-table td {
+  border: 1px solid #cbd3df;
+  padding: 10px 12px;
+}
+
+.sow-document .bordered-table th {
+  background: #f6f8fb;
 }
 
 .poap-jpeg {

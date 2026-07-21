@@ -71,12 +71,20 @@
               <h3>Opportunity Setup</h3>
               <div class="form-grid">
                 <label class="field">
+                  <span>Opportunity number</span>
+                  <input id="opportunityNumber" value="INF001" />
+                </label>
+                <label class="field">
                   <span>Customer</span>
                   <input id="customer" value="Informa" />
                 </label>
                 <label class="field">
-                  <span>Project</span>
+                  <span>Opportunity title</span>
                   <input id="project" value="Knowledge Agent - Stage 1 Prototype" />
+                </label>
+                <label class="field">
+                  <span>Cover subtitle</span>
+                  <input id="subtitle" value="Statement of Work" />
                 </label>
                 <label class="field">
                   <span>Supplier</span>
@@ -129,6 +137,11 @@
               <button class="ghost-button" id="resetSections">Reset recommendations</button>
             </div>
             <div class="section-list" id="sectionList"></div>
+            <div class="mandatory-editor">
+              <h3>Mandatory Content Editor</h3>
+              <p class="helper">These sections are always included. Edit the wording here, then preview/export the SOW.</p>
+              <div id="mandatoryEditor" class="mandatory-list"></div>
+            </div>
           </div>
         </section>
 

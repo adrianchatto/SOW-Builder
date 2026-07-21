@@ -40,9 +40,25 @@ let coverAssetsReady = false;
 const colours = ["#5b2ee6", "#ef0f64", "#f57c00", "#0aa85a", "#6b35d4", "#0877ea", "#0d7eea"];
 const icons = ["?", "✎", "⚙", "▥", "✓", "★", "◆"];
 
+const mandatoryContent = [
+  { id: "proprietaryNotice", title: "Proprietary Notice", rows: 5 },
+  { id: "agreementText", title: "Agreement", rows: 4 },
+  { id: "backgroundOverview", title: "Background - Customer Overview", rows: 4 },
+  { id: "backgroundRequirements", title: "Background - Customer Requirements", rows: 4 },
+  { id: "scopeIncluded", title: "Scope - Included", rows: 7 },
+  { id: "scopeExclusions", title: "Scope - Boundaries And Exclusions", rows: 5 },
+  { id: "successMeasuresText", title: "Success Metrics", rows: 5 },
+  { id: "dependenciesText", title: "Dependencies", rows: 6 },
+  { id: "changeControlText", title: "Change Control", rows: 4 },
+  { id: "securityText", title: "Data Protection, Security And AI Governance", rows: 4 },
+  { id: "commercialsText", title: "Commercials", rows: 4 }
+];
+
 const sample = {
+  opportunityNumber: "INF001",
   customer: "Informa",
   project: "Knowledge Agent - Stage 1 Prototype",
+  subtitle: "Statement of Work",
   supplier: "CloudInteract",
   author: "CloudInteract",
   version: "v0.1",
@@ -96,7 +112,29 @@ const sample = {
     "Should ServiceNow's native approval workflow own approvals, or should the AWS agent orchestrate them?",
     "Should ServiceNow raise the documenting ticket, or should the agent create it while ServiceNow remains the system of record?",
     "Which legal boilerplate is already covered by CloudInteract's standard MSA and therefore should not be repeated in every SOW?"
-  ]
+  ],
+  proprietaryNotice:
+    "© Copyright 2026 CloudInteract Holdings All rights reserved. CloudInteract Ltd Registered Office: 4 Parkside Court, Greenhough Road, Lichfield, Staffordshire, United Kingdom, WS13 7FE.\n\nThe information and data contained or referenced in this Statement of Work document constitute confidential information of CloudInteract Holdings or its affiliates or subsidiaries. In consideration of receipt of this document, the recipient agrees to maintain such information in confidence and not to reproduce or otherwise disclose this information without the express permission of CloudInteract.",
+  agreementText:
+    "This Statement of Work (“SOW”) is entered into between CloudInteract Ltd (“Service Provider”), and Informa (“Client”), pursuant to the applicable agreement between the parties.",
+  backgroundOverview:
+    "A focused Stage 1 proof of value to demonstrate that a reasoning agent can resolve real IT software requests end to end through Microsoft Teams, using Informa's AWS account, dev ServiceNow and Confluence knowledge sources.",
+  backgroundRequirements:
+    "The Stage 1 objective is to prove that one reasoning agent can give Informa colleagues a fast and consistent IT resolution experience, and can escalate cleanly to the service desk when autonomous resolution is not appropriate.",
+  scopeIncluded:
+    "Select one primary and one backup proof-of-value business process with Informa, centred on discrete automatable IT requests such as software approval.\nInvestigate Informa's ServiceNow configuration, workflows and existing approval process.\nDesign, create, test and deploy a self-service reasoning agent for the selected proof-of-value process.\nExpose the colleague experience through Microsoft Teams, using Power Platform Approvals where needed.\nHand over the solution to Informa IT with recommended next steps for pilot and production rollout.",
+  scopeExclusions:
+    "Production hardening, high-scale rollout and live production ServiceNow write access.\nAdditional business processes beyond the agreed Stage 1 proof of value.\nUnsupported or undocumented ServiceNow API functionality.\nStage 2 pilot, productionise and scale activities, which will be separately scoped.",
+  successMeasuresText:
+    "At least 40% autonomous resolution for in-scope requests.\nAt least 90% correct escalation routing when the agent cannot resolve.\nAt least 80% retrieval relevance for selected knowledge sources.\nStakeholders can experience the end-to-end Teams journey against a realistic dev environment.",
+  dependenciesText:
+    "Dev ServiceNow instance with REST API access, populated with representative tickets, CMDB and knowledge base data.\nConfluence read access to two or three ETS knowledge spaces.\nAWS sandbox account for hosting and Bedrock AgentCore enablement.\nTeams channel/app access and identity inputs from HR/IdP, which may be mocked if required.\nService Desk SME, technical lead/product owner and timely security/governance decisions.",
+  changeControlText:
+    "Any material change to scope, assumptions, timeline, deliverables, environments, integrations or acceptance criteria will be documented and agreed by both parties before the additional work is performed.",
+  securityText:
+    "The Stage 1 prototype is expected to run in non-production environments using dev or representative data. Production security review, DPIA support, live ServiceNow write access, SSO hardening, audit requirements and operational support are Stage 2 activities unless expressly added to this SOW.",
+  commercialsText:
+    "Fixed price: £20,000 for Stage 1 proof of value only.\nPayment profile: 25% on start and 75% on delivery, subject to commercial review.\nResource profile: Technical architect/engineer, project management and business analysis."
 };
 
 let state = structuredClone(sample);
@@ -122,7 +160,19 @@ function formatDate(value, weekOffset = 0) {
 }
 
 function bindInputs() {
-  ["customer", "project", "supplier", "author", "version", "versionComment", "price", "startDate", "duration"].forEach((id) => {
+  [
+    "opportunityNumber",
+    "customer",
+    "project",
+    "subtitle",
+    "supplier",
+    "author",
+    "version",
+    "versionComment",
+    "price",
+    "startDate",
+    "duration"
+  ].forEach((id) => {
     $(`#${id}`).addEventListener("input", () => {
       state[id] = id === "duration" ? Number($(`#${id}`).value) : $(`#${id}`).value;
       renderAll();
@@ -215,8 +265,22 @@ async function updateFilename(event, selector) {
 }
 
 function syncForm() {
-  ["customer", "project", "supplier", "author", "version", "versionComment", "price", "startDate", "duration"].forEach((id) => {
-    $(`#${id}`).value = state[id];
+  [
+    "opportunityNumber",
+    "customer",
+    "project",
+    "subtitle",
+    "supplier",
+    "author",
+    "version",
+    "versionComment",
+    "price",
+    "startDate",
+    "duration",
+    ...mandatoryContent.map((item) => item.id)
+  ].forEach((id) => {
+    const input = $(`#${id}`);
+    if (input) input.value = state[id];
   });
 }
 
@@ -256,6 +320,45 @@ function renderSections() {
       renderPreview();
     });
   });
+
+  $("#mandatoryEditor").innerHTML = mandatoryContent
+    .map(
+      (item) => `
+        <div class="mandatory-card">
+          <div class="mandatory-card-header">
+            <label for="${item.id}">${escapeHtml(item.title)}</label>
+            <button class="ghost-button improve-button" type="button" data-improve="${item.id}">Improve with AI</button>
+          </div>
+          <textarea id="${item.id}" rows="${item.rows}">${escapeHtml(state[item.id] || "")}</textarea>
+        </div>`
+    )
+    .join("");
+
+  $$("#mandatoryEditor textarea").forEach((input) => {
+    input.addEventListener("input", () => {
+      state[input.id] = input.value;
+      renderPreview();
+    });
+  });
+
+  $$("#mandatoryEditor .improve-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      const id = button.dataset.improve;
+      const input = $(`#${id}`);
+      input.value = improveText(input.value);
+      state[id] = input.value;
+      renderPreview();
+    });
+  });
+}
+
+function improveText(value) {
+  return String(value)
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/\s+/g, " "))
+    .join("\n");
 }
 
 function renderPhaseEditor() {
@@ -486,9 +589,9 @@ function generateCoverJpegDataUrl() {
 
   ctx.fillStyle = "#ffffff";
   ctx.font = "92px Arial";
-  wrapCanvasText(ctx, coverProjectName(), 28, 960, 980, 118, 4);
+  wrapCanvasText(ctx, coverProjectName(), 28, 960, 900, 118, 4);
   ctx.font = "34px Arial";
-  ctx.fillText("Statement of Work", 34, 1355);
+  ctx.fillText(state.subtitle || "Statement of Work", 34, 1355);
   return canvas.toDataURL("image/jpeg", 0.94);
 }
 
@@ -535,6 +638,31 @@ function coverProjectName() {
   return project.toLowerCase().startsWith(customer.toLowerCase()) ? project : `${customer} - ${project}`;
 }
 
+function documentFileBase() {
+  return [state.opportunityNumber, state.customer, state.project]
+    .filter(Boolean)
+    .map((part) => String(part).trim())
+    .filter(Boolean)
+    .join(" - ")
+    .replace(/[^\w£]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function lines(value) {
+  return String(value || "")
+    .split(/\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function paragraphs(value) {
+  return lines(value).map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+}
+
+function bulletList(value) {
+  return `<ul>${lines(value).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
 function renderPreview() {
   const optional = optionalSections.filter((item) => sectionState[item.id] === "optional");
   const poapImage = generatePoapJpegDataUrl();
@@ -544,6 +672,17 @@ function renderPreview() {
     </section>
 
     <section class="sow-page content-page">
+    <section class="document-details">
+      <h2>Document Details</h2>
+      <table>
+        <tr><th>Client</th><td>${escapeHtml(state.customer)}</td></tr>
+        <tr><th>Date Created</th><td>${escapeHtml(formatDate(new Date().toISOString().slice(0, 10)))}</td></tr>
+        <tr><th>Document Type</th><td>Statement of Work (SOW)</td></tr>
+        <tr><th>Document Name</th><td>${escapeHtml(state.project)}</td></tr>
+        <tr><th>Author</th><td>${escapeHtml(state.author || state.supplier || "CloudInteract")}</td></tr>
+      </table>
+    </section>
+
     <section class="version-history">
       <h2>Document Revision History</h2>
       <table>
@@ -559,84 +698,75 @@ function renderPreview() {
 
     <section class="sow-front-matter">
       <h2>Proprietary Notice</h2>
-      <p>© Copyright 2026 CloudInteract Holdings. All rights reserved. CloudInteract Ltd Registered Office: 4 Parkside Court, Greenhough Road, Lichfield, Staffordshire, United Kingdom, WS13 7FE.</p>
-      <p>The information contained in this Statement of Work is confidential to CloudInteract and the recipient. It must not be reproduced or disclosed except in connection with review and performance of this SOW.</p>
+      ${paragraphs(state.proprietaryNotice)}
+    </section>
     </section>
 
-      <h2>Agreement</h2>
-      <p>This Statement of Work (“SOW”) is entered into between ${escapeHtml(state.supplier)} Ltd (“Service Provider”), and ${escapeHtml(state.customer)} (“Client”), pursuant to the applicable agreement between the parties.</p>
+    <section class="sow-page content-page">
+      <h2>1 Agreement</h2>
+      ${paragraphs(state.agreementText)}
 
-      <h2>Background</h2>
-      <h3>Customer Overview</h3>
-      <p>${escapeHtml(state.overview)}</p>
-      <h3>Customer Requirements</h3>
-      <p>The Stage 1 objective is to prove that one reasoning agent can give Informa colleagues a fast and consistent IT resolution experience, and can escalate cleanly to the service desk when autonomous resolution is not appropriate.</p>
+      <h2>2 Background</h2>
+      <h3>2.1 Customer Overview</h3>
+      ${paragraphs(state.backgroundOverview)}
+      <h3>2.2 Customer Requirements</h3>
+      ${paragraphs(state.backgroundRequirements)}
 
-      <h2>Scope</h2>
-      <h3>Included</h3>
-      <ul>${state.scope.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
-      <h3>Boundaries And Exclusions</h3>
-      <ul>${state.exclusions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      <h2>3 Scope</h2>
+      <h3>3.1 Included</h3>
+      ${bulletList(state.scopeIncluded)}
+      <h3>3.2 Boundaries And Exclusions</h3>
+      ${bulletList(state.scopeExclusions)}
 
-      <h2>Project Plan</h2>
-      <h3>Plan On A Page</h3>
+      <h2>4 Project Plan</h2>
+      <h3>4.1 Plan On A Page</h3>
       <p>The plan below is indicative and assumes timely access, data, stakeholder availability and governance decisions.</p>
       <img class="poap-jpeg" src="${poapImage}" alt="Plan on a page timeline" />
 
-      <h2>Workstreams And Deliverables</h2>
-      <table>
+      <h2>5 Deliverables And Acceptance Criteria</h2>
+      <table class="bordered-table">
         <tr><th>Deliverable</th><th>Acceptance basis</th></tr>
         <tr><td>Working reasoning-agent prototype in Informa AWS sandbox</td><td>Demonstrated against the selected software-request journey using dev ServiceNow and representative knowledge sources.</td></tr>
         <tr><td>Microsoft Teams colleague experience</td><td>Stakeholders can request software in plain language and receive resolution, approval routing or escalation updates in Teams.</td></tr>
         <tr><td>ServiceNow and knowledge integrations</td><td>Prototype can check entitlement, duplicate requests and route/document work through supported public APIs.</td></tr>
         <tr><td>Handover pack and Stage 2 recommendations</td><td>Informa IT receives architecture notes, run considerations, backlog and recommended pilot/production next steps.</td></tr>
       </table>
-      <h3>Success Measures</h3>
-      <ul>${state.success.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      <h2>6 Success Metrics</h2>
+      ${bulletList(state.successMeasuresText)}
 
-      <h2>Roles And Responsibilities</h2>
-      <table>
-        <tr><th>Party</th><th>Responsibilities</th></tr>
-        ${state.roles.map((row) => `<tr><td>${escapeHtml(row[0])}</td><td>${escapeHtml(row[1])}</td></tr>`).join("")}
-      </table>
-
-      <h2>Dependencies</h2>
-      <ul>${state.dependencies.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      <h2>7 Dependencies</h2>
+      ${bulletList(state.dependenciesText)}
       <h3>Open Questions To Confirm</h3>
       <ul>${state.openQuestions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
 
-      <h2>Commercials</h2>
-      <table>
-        <tr><th>Fixed price</th><td>${escapeHtml(state.price)} for Stage 1 proof of value only.</td></tr>
-        <tr><th>Payment profile</th><td>25% on start and 75% on delivery, subject to commercial review.</td></tr>
-        <tr><th>Resource profile</th><td>Technical architect/engineer, project management and business analysis.</td></tr>
-      </table>
+      <h2>8 Change Control</h2>
+      ${paragraphs(state.changeControlText)}
 
-      <h2>Change Control</h2>
-      <p>Any material change to scope, assumptions, timeline, deliverables, environments, integrations or acceptance criteria will be documented and agreed by both parties before the additional work is performed.</p>
-
-      <h2>Data Protection, Security And AI Governance</h2>
-      <p>The Stage 1 prototype is expected to run in non-production environments using dev or representative data. Production security review, DPIA support, live ServiceNow write access, SSO hardening, audit requirements and operational support are Stage 2 activities unless expressly added to this SOW.</p>
+      <h2>9 Data Protection, Security And AI Governance</h2>
+      ${paragraphs(state.securityText)}
 
     ${isIncluded("ipDetail") ? `
-      <h2>11. Intellectual Property And Reuse</h2>
+      <h2>10 Intellectual Property And Reuse</h2>
       <p>Unless otherwise agreed in signed commercial terms, the customer owns customer-specific outputs and data supplied by the customer. CloudInteract retains ownership of pre-existing tools, methods, know-how, templates and reusable accelerators used to deliver the work.</p>` : ""}
 
     ${isIncluded("confidentiality") ? `
-      <h2>12. Confidentiality</h2>
+      <h2>11 Confidentiality</h2>
       <p>Each party will protect confidential information disclosed in connection with this SOW. Where a separate NDA or master agreement exists, that agreement will take precedence over this summary wording.</p>` : ""}
 
     ${isIncluded("assurance") ? `
-      <h2>13. Assurance And Oversight</h2>
+      <h2>12 Assurance And Oversight</h2>
       <p>The prototype will include outcome verification, human review for uncertain or failed cases, audit logging for agent decisions and visibility of agreed success metrics. Any standing auto-approval rule must be agreed before use.</p>` : ""}
 
     ${isIncluded("stage2") ? `
-      <h2>14. Stage 2 Roadmap</h2>
+      <h2>13 Stage 2 Roadmap</h2>
       <p>Following Stage 1, the recommended path is a controlled pilot with a friendly cohort, then production hardening, phased rollout by segment, additional channels and expansion into further use cases.</p>` : ""}
 
     ${isIncluded("legalBoilerplate") ? `
-      <h2>15. Extended Legal Boilerplate</h2>
+      <h2>14 Extended Legal Boilerplate</h2>
       <p>Final legal terms should confirm warranty, liability, assignment, third-party rights, counterparts, governing law and jurisdiction, either in this SOW or in the governing master services agreement.</p>` : ""}
+
+    <h2>Commercials</h2>
+    ${paragraphs(state.commercialsText)}
 
     ${optional.length ? `
       <h2>Items To Confirm Before Finalising</h2>
@@ -659,7 +789,7 @@ function downloadHtml() {
   const blob = new Blob([content], { type: "text/html" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = `${state.customer.replaceAll(/\W+/g, "-")}-SOW-draft.html`;
+  link.download = `${documentFileBase()}.html`;
   link.click();
   URL.revokeObjectURL(link.href);
 }
@@ -677,7 +807,7 @@ async function exportDocument(format) {
   const blob = await response.blob();
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = `${state.customer.replaceAll(/\W+/g, "-")}-SOW-draft.${format}`;
+  link.download = `${documentFileBase()}.${format}`;
   link.click();
   URL.revokeObjectURL(link.href);
 }
