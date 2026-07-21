@@ -670,6 +670,31 @@ function bulletList(value) {
   return `<ul>${lines(value).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 }
 
+function tocItems() {
+  const items = [
+    ["1", "Agreement"],
+    ["2", "Background"],
+    ["3", "Scope"],
+    ["4", "Project Plan"],
+    ["5", "Deliverables And Acceptance Criteria"],
+    ["6", "Success Metrics"],
+    ["7", "Dependencies"],
+    ["8", "Change Control"],
+    ["9", "Data Protection, Security And AI Governance"]
+  ];
+  [
+    ["ipDetail", "10", "Intellectual Property And Reuse"],
+    ["confidentiality", "11", "Confidentiality"],
+    ["assurance", "12", "Assurance And Oversight"],
+    ["stage2", "13", "Stage 2 Roadmap"],
+    ["legalBoilerplate", "14", "Extended Legal Boilerplate"]
+  ].forEach(([key, number, title]) => {
+    if (isIncluded(key)) items.push([number, title]);
+  });
+  items.push(["", "Commercials"], ["", "Signature"]);
+  return items;
+}
+
 function renderPreview() {
   const optional = optionalSections.filter((item) => sectionState[item.id] === "optional");
   const poapImage = generatePoapJpegDataUrl();
@@ -707,6 +732,19 @@ function renderPreview() {
       <h2>Proprietary Notice</h2>
       ${paragraphs(state.proprietaryNotice)}
     </section>
+    </section>
+
+    <section class="sow-page content-page toc-page">
+      <h2>Table of Contents</h2>
+      <table class="toc-table">
+        ${tocItems()
+          .map(([number, title]) => `
+            <tr>
+              <th>${escapeHtml(number)}</th>
+              <td>${escapeHtml(title)}</td>
+            </tr>`)
+          .join("")}
+      </table>
     </section>
 
     <section class="sow-page content-page">

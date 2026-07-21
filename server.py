@@ -349,6 +349,32 @@ def document_file_base(data):
     return "-".join([safe_name(part) for part in parts if str(part or "").strip()])
 
 
+def toc_rows(data):
+    rows = [
+        ["1", "Agreement"],
+        ["2", "Background"],
+        ["3", "Scope"],
+        ["4", "Project Plan"],
+        ["5", "Deliverables And Acceptance Criteria"],
+        ["6", "Success Metrics"],
+        ["7", "Dependencies"],
+        ["8", "Change Control"],
+        ["9", "Data Protection, Security And AI Governance"],
+    ]
+    optional = [
+        ("ipDetail", "10", "Intellectual Property And Reuse"),
+        ("confidentiality", "11", "Confidentiality"),
+        ("assurance", "12", "Assurance And Oversight"),
+        ("stage2", "13", "Stage 2 Roadmap"),
+        ("legalBoilerplate", "14", "Extended Legal Boilerplate"),
+    ]
+    for key, number, title in optional:
+        if optional_enabled(data, key):
+            rows.append([number, title])
+    rows.extend([["", "Commercials"], ["", "Signature"]])
+    return rows
+
+
 def build_docx(data):
     from docx import Document
     from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -446,6 +472,10 @@ def build_docx(data):
         doc.add_paragraph("")
     doc.add_heading("Proprietary Notice", level=1)
     add_paragraphs(data.get("proprietaryNotice"))
+    doc.add_page_break()
+
+    doc.add_heading("Table of Contents", level=1)
+    add_table(toc_rows(data))
     doc.add_page_break()
 
     doc.add_heading("1 Agreement", level=1)
@@ -562,6 +592,10 @@ def build_pdf(data):
     story.append(Spacer(1, 92 * mm))
     heading("Proprietary Notice")
     paras(data.get("proprietaryNotice"))
+    story.append(PageBreak())
+
+    heading("Table of Contents")
+    story.append(make_pdf_table(toc_rows(data), [18 * mm, 152 * mm]))
     story.append(PageBreak())
 
     heading("1 Agreement")
