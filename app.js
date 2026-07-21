@@ -44,6 +44,9 @@ const sample = {
   customer: "Informa",
   project: "Knowledge Agent - Stage 1 Prototype",
   supplier: "CloudInteract",
+  author: "CloudInteract",
+  version: "v0.1",
+  versionComment: "First draft",
   price: "£20,000",
   startDate: "2026-08-03",
   duration: 8,
@@ -119,7 +122,7 @@ function formatDate(value, weekOffset = 0) {
 }
 
 function bindInputs() {
-  ["customer", "project", "supplier", "price", "startDate", "duration"].forEach((id) => {
+  ["customer", "project", "supplier", "author", "version", "versionComment", "price", "startDate", "duration"].forEach((id) => {
     $(`#${id}`).addEventListener("input", () => {
       state[id] = id === "duration" ? Number($(`#${id}`).value) : $(`#${id}`).value;
       renderAll();
@@ -212,7 +215,7 @@ async function updateFilename(event, selector) {
 }
 
 function syncForm() {
-  ["customer", "project", "supplier", "price", "startDate", "duration"].forEach((id) => {
+  ["customer", "project", "supplier", "author", "version", "versionComment", "price", "startDate", "duration"].forEach((id) => {
     $(`#${id}`).value = state[id];
   });
 }
@@ -483,7 +486,9 @@ function generateCoverJpegDataUrl() {
 
   ctx.fillStyle = "#ffffff";
   ctx.font = "92px Arial";
-  wrapCanvasText(ctx, coverProjectName(), 28, 980, 1228, 118, 4);
+  wrapCanvasText(ctx, coverProjectName(), 28, 960, 980, 118, 4);
+  ctx.font = "34px Arial";
+  ctx.fillText("Statement of Work", 34, 1355);
   return canvas.toDataURL("image/jpeg", 0.94);
 }
 
@@ -539,6 +544,19 @@ function renderPreview() {
     </section>
 
     <section class="sow-page content-page">
+    <section class="version-history">
+      <h2>Document Revision History</h2>
+      <table>
+        <tr><th>Version</th><th>Date Modified</th><th>Description</th><th>Modified By</th></tr>
+        <tr>
+          <td>${escapeHtml(state.version || "v0.1")}</td>
+          <td>${escapeHtml(formatDate(new Date().toISOString().slice(0, 10)))}</td>
+          <td>${escapeHtml(state.versionComment || "First draft")}</td>
+          <td>${escapeHtml(state.author || state.supplier || "CloudInteract")}</td>
+        </tr>
+      </table>
+    </section>
+
     <section class="sow-front-matter">
       <h2>Proprietary Notice</h2>
       <p>© Copyright 2026 CloudInteract Holdings. All rights reserved. CloudInteract Ltd Registered Office: 4 Parkside Court, Greenhough Road, Lichfield, Staffordshire, United Kingdom, WS13 7FE.</p>

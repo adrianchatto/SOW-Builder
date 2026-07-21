@@ -244,7 +244,8 @@ def render_cover_jpeg(data):
         for index, item in enumerate(lines[:max_lines]):
             draw.text((x, y + index * line_height), item, fill=fill, font=fnt)
 
-    wrap(cover_project_name(data), 28, 980, 1228, 118, font(92), "white", max_lines=4)
+    wrap(cover_project_name(data), 28, 960, 980, 118, font(92), "white", max_lines=4)
+    draw.text((34, 1355), "Statement of Work", fill="white", font=font(34))
 
     buffer = BytesIO()
     image.save(buffer, format="JPEG", quality=94)
@@ -308,6 +309,18 @@ def section_blocks(data):
     return blocks
 
 
+def version_rows(data):
+    return [
+        ["Version", "Date Modified", "Description", "Modified By"],
+        [
+            data.get("version") or "v0.1",
+            "21 Jul 2026",
+            data.get("versionComment") or "First draft",
+            data.get("author") or data.get("supplier") or "CloudInteract",
+        ],
+    ]
+
+
 def build_docx(data):
     from docx import Document
     from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -367,6 +380,18 @@ def build_docx(data):
     doc.add_picture(BytesIO(render_cover_jpeg(data)), width=Inches(7.05))
 
     doc.add_page_break()
+    doc.add_heading("Document Revision History", level=1)
+    table = doc.add_table(rows=2, cols=4)
+    format_table(table)
+    for r, row in enumerate(version_rows(data)):
+        for c, cell_value in enumerate(row):
+            cell = table.cell(r, c)
+            cell.text = str(cell_value)
+            if r == 0:
+                for paragraph in cell.paragraphs:
+                    for run in paragraph.runs:
+                        run.bold = True
+
     doc.add_heading("Proprietary Notice", level=1)
     doc.add_paragraph("© Copyright 2026 CloudInteract Holdings All rights reserved. CloudInteract Ltd Registered Office: 4 Parkside Court, Greenhough Road, Lichfield, Staffordshire, United Kingdom, WS13 7FE.")
     doc.add_paragraph("The information and data contained or referenced in this Statement of Work document constitute confidential information of CloudInteract Holdings or its affiliates or subsidiaries.")
@@ -451,6 +476,9 @@ def build_pdf(data):
         Image(BytesIO(render_cover_jpeg(data)), width=182 * mm, height=255 * mm),
         PageBreak(),
     ]
+    story.append(Paragraph("Document Revision History", styles["Heading2"]))
+    story.append(make_pdf_table(version_rows(data), None))
+    story.append(Spacer(1, 10))
     story.append(Paragraph("Proprietary Notice", styles["Heading2"]))
     story.append(Paragraph("© Copyright 2026 CloudInteract Holdings All rights reserved. CloudInteract Ltd Registered Office: 4 Parkside Court, Greenhough Road, Lichfield, Staffordshire, United Kingdom, WS13 7FE.", styles["BodyText"]))
     story.append(Paragraph("The information and data contained or referenced in this Statement of Work document constitute confidential information of CloudInteract Holdings or its affiliates or subsidiaries.", styles["BodyText"]))
