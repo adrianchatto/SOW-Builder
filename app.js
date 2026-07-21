@@ -174,7 +174,7 @@ function bindInputs() {
 }
 
 function waitForCoverAssets() {
-  const images = [document.querySelector(".cover-art-preload")].filter(Boolean);
+  const images = [document.querySelector(".cover-logo-preload")].filter(Boolean);
   return Promise.all(
     images.map((image) => {
       if (image.complete && image.naturalWidth > 0) return Promise.resolve();
@@ -459,7 +459,49 @@ function generatePoapJpegDataUrl() {
 }
 
 function generateCoverJpegDataUrl() {
-  return "gstt-template-assets/cover-page.png";
+  const canvas = document.createElement("canvas");
+  canvas.width = 1284;
+  canvas.height = 1800;
+  const ctx = canvas.getContext("2d");
+  const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  gradient.addColorStop(0, "#5b2ee6");
+  gradient.addColorStop(0.46, "#ef0f64");
+  gradient.addColorStop(1, "#0877ea");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.globalAlpha = 0.22;
+  for (let i = 0; i < 16; i++) {
+    ctx.beginPath();
+    ctx.arc(110 + i * 86, 280 + Math.sin(i) * 70, 180 + (i % 4) * 35, 0, Math.PI * 2);
+    ctx.fillStyle = i % 2 ? "#ffffff" : "#111827";
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  const logo = document.querySelector(".cover-logo-preload");
+  if (logo?.complete && logo.naturalWidth) {
+    ctx.drawImage(logo, 112, 112, 285, 176);
+  } else {
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "800 54px Arial";
+    ctx.fillText("Cloud", 112, 190);
+    ctx.font = "24px Arial";
+    ctx.fillText("Interact", 116, 228);
+  }
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "800 86px Arial";
+  ctx.fillText("Statement of Work", 112, 735);
+  ctx.font = "54px Georgia";
+  wrapCanvasText(ctx, coverProjectName(), 116, 840, 940, 68, 5);
+
+  ctx.font = "700 28px Arial";
+  ctx.fillText(state.customer || "Client", 116, 1490);
+  ctx.font = "24px Arial";
+  ctx.fillText(formatDate(new Date().toISOString().slice(0, 10)), 116, 1542);
+  ctx.fillText(state.supplier || "CloudInteract", 116, 1590);
+  return canvas.toDataURL("image/jpeg", 0.94);
 }
 
 function roundRect(ctx, x, y, width, height, radius, fill, stroke) {

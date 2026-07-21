@@ -11,8 +11,8 @@ from zipfile import ZipFile
 
 
 ROOT = Path(__file__).resolve().parent
-TEMPLATE_DOCX = Path("/Users/adrianchatto/Downloads/SOW GSTT AI-Outbound PoC CloudInteract (2).docx")
-COVER_PAGE = ROOT / "gstt-template-assets" / "cover-page.png"
+TEMPLATE_DOCX = Path("/Users/adrianchatto/Downloads/Informa-SOW-draft (4).docx")
+COVER_LOGO = ROOT / "gstt-template-assets" / "image1.png"
 BRAND_PURPLE = "5B2EE6"
 BRAND_BLUE = "0877EA"
 BRAND_PINK = "EF0F64"
@@ -190,7 +190,76 @@ def render_poap_jpeg(phases):
 
 
 def render_cover_jpeg(data):
-    return COVER_PAGE.read_bytes()
+    from PIL import Image, ImageDraw, ImageFont
+
+    width, height = 1284, 1800
+    image = Image.new("RGB", (width, height), "#5B2EE6")
+    draw = ImageDraw.Draw(image, "RGBA")
+
+    def font(size, bold=False, serif=False):
+        candidates = [
+            "/System/Library/Fonts/Supplemental/Times New Roman.ttf" if serif else None,
+            "/System/Library/Fonts/Supplemental/Arial Bold.ttf" if bold else "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+        ]
+        for candidate in [item for item in candidates if item]:
+            try:
+                return ImageFont.truetype(candidate, size)
+            except Exception:
+                pass
+        return ImageFont.load_default()
+
+    for y in range(height):
+        t = y / max(height - 1, 1)
+        if t < 0.46:
+            local = t / 0.46
+            start, end = (91, 46, 230), (239, 15, 100)
+        else:
+            local = (t - 0.46) / 0.54
+            start, end = (239, 15, 100), (8, 119, 234)
+        colour = tuple(int(start[i] + (end[i] - start[i]) * local) for i in range(3))
+        draw.line((0, y, width, y), fill=colour)
+
+    for i in range(16):
+        x = 110 + i * 86
+        y = 280 + int(__import__("math").sin(i) * 70)
+        radius = 180 + (i % 4) * 35
+        fill = (255, 255, 255, 42) if i % 2 else (17, 24, 39, 42)
+        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=fill)
+
+    if COVER_LOGO.exists():
+        logo = Image.open(COVER_LOGO).convert("RGBA")
+        logo.thumbnail((285, 176), Image.LANCZOS)
+        image.paste(logo, (112, 112), logo)
+    else:
+        draw.text((112, 138), "Cloud", fill="white", font=font(54, True))
+        draw.text((116, 204), "Interact", fill="white", font=font(24))
+
+    def wrap(text, x, y, max_width, line_height, fnt, fill, max_lines=5):
+        words = str(text).split()
+        lines, line = [], ""
+        for word in words:
+            candidate = f"{line} {word}".strip()
+            bbox = draw.textbbox((0, 0), candidate, font=fnt)
+            if bbox[2] - bbox[0] > max_width and line:
+                lines.append(line)
+                line = word
+            else:
+                line = candidate
+        if line:
+            lines.append(line)
+        for index, item in enumerate(lines[:max_lines]):
+            draw.text((x, y + index * line_height), item, fill=fill, font=fnt)
+
+    draw.text((112, 648), "Statement of Work", fill="white", font=font(86, True))
+    wrap(cover_project_name(data), 116, 840, 940, 68, font(54, serif=True), "white")
+    draw.text((116, 1462), data.get("customer") or "Client", fill="white", font=font(28, True))
+    draw.text((116, 1518), "21 Jul 2026", fill="white", font=font(24))
+    draw.text((116, 1566), data.get("supplier") or "CloudInteract", fill="white", font=font(24))
+
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG", quality=94)
+    return buffer.getvalue()
 
 
 def section_blocks(data):
