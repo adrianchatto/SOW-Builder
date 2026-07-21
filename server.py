@@ -430,6 +430,8 @@ def build_docx(data):
     add_table(document_detail_rows(data))
     doc.add_heading("Document Revision History", level=1)
     add_table(version_rows(data))
+    for _ in range(8):
+        doc.add_paragraph("")
     doc.add_heading("Proprietary Notice", level=1)
     add_paragraphs(data.get("proprietaryNotice"))
     doc.add_page_break()
@@ -542,6 +544,7 @@ def build_pdf(data):
     story.append(make_pdf_table(document_detail_rows(data), None))
     heading("Document Revision History")
     story.append(make_pdf_table(version_rows(data), None))
+    story.append(Spacer(1, 55 * mm))
     heading("Proprietary Notice")
     paras(data.get("proprietaryNotice"))
     story.append(PageBreak())

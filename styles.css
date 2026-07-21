@@ -682,6 +682,11 @@ body.is-file-mode .file-warning {
   min-height: 1262px;
 }
 
+.preamble-page {
+  display: flex;
+  flex-direction: column;
+}
+
 .cover-image {
   display: block;
   width: 100%;
@@ -704,7 +709,8 @@ body.is-file-mode .file-warning {
 
 .sow-front-matter {
   border-bottom: 1px solid #eef1f5;
-  margin-bottom: 32px;
+  margin-top: auto;
+  margin-bottom: 0;
   padding-bottom: 18px;
 }
 

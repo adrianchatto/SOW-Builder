@@ -671,7 +671,7 @@ function renderPreview() {
       <img class="cover-image" src="${generateCoverJpegDataUrl()}" alt="Statement of Work cover page" />
     </section>
 
-    <section class="sow-page content-page">
+    <section class="sow-page content-page preamble-page">
     <section class="document-details">
       <h2>Document Details</h2>
       <table>
