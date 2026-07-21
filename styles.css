@@ -683,8 +683,7 @@ body.is-file-mode .file-warning {
 }
 
 .preamble-page {
-  display: flex;
-  flex-direction: column;
+  position: relative;
 }
 
 .cover-image {
@@ -708,8 +707,11 @@ body.is-file-mode .file-warning {
 }
 
 .sow-front-matter {
+  position: absolute;
+  left: 64px;
+  right: 64px;
+  bottom: 54px;
   border-bottom: 1px solid #eef1f5;
-  margin-top: auto;
   margin-bottom: 0;
   padding-bottom: 18px;
 }
