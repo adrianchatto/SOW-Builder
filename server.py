@@ -335,6 +335,15 @@ def split_lines(value):
     return [line.strip() for line in str(value or "").splitlines() if line.strip()]
 
 
+def dynamic_text(value, data):
+    return (
+        str(value or "")
+        .replace("{customer}", data.get("customer") or "Client")
+        .replace("{supplier}", data.get("supplier") or "CloudInteract")
+        .replace("Informa", data.get("customer") or "Client")
+    )
+
+
 def document_file_base(data):
     parts = [data.get("opportunityNumber"), data.get("customer"), data.get("project")]
     return "-".join([safe_name(part) for part in parts if str(part or "").strip()])
@@ -416,12 +425,15 @@ def build_docx(data):
         return table
 
     def add_paragraphs(text):
-        for line in split_lines(text):
+        for line in split_lines(dynamic_text(text, data)):
             doc.add_paragraph(line)
 
     def add_bullets(text):
-        for line in split_lines(text):
+        for line in split_lines(dynamic_text(text, data)):
             doc.add_paragraph(line, style="List Bullet")
+
+    def dt(text):
+        return dynamic_text(text, data)
 
     doc.add_picture(BytesIO(render_cover_jpeg(data)), width=Inches(7.05))
 
@@ -455,10 +467,10 @@ def build_docx(data):
     doc.add_heading("5 Deliverables And Acceptance Criteria", level=1)
     add_table([
         ["Deliverable", "Acceptance basis"],
-        ["Working reasoning-agent prototype in Informa AWS sandbox", "Demonstrated against the selected software-request journey using dev ServiceNow and representative knowledge sources."],
+        [dt("Working reasoning-agent prototype in {customer} AWS sandbox"), "Demonstrated against the selected software-request journey using dev ServiceNow and representative knowledge sources."],
         ["Microsoft Teams colleague experience", "Stakeholders can request software in plain language and receive resolution, approval routing or escalation updates in Teams."],
         ["ServiceNow and knowledge integrations", "Prototype can check entitlement, duplicate requests and route/document work through supported public APIs."],
-        ["Handover pack and Stage 2 recommendations", "Informa IT receives architecture notes, run considerations, backlog and recommended pilot/production next steps."],
+        ["Handover pack and Stage 2 recommendations", dt("{customer} IT receives architecture notes, run considerations, backlog and recommended pilot/production next steps.")],
     ], bordered=True)
     doc.add_heading("6 Success Metrics", level=1)
     add_bullets(data.get("successMeasuresText"))
@@ -533,12 +545,15 @@ def build_pdf(data):
         story.append(Paragraph(escape(text), styles["Heading2" if level == 2 else "Heading3"]))
 
     def paras(text):
-        for line in split_lines(text):
+        for line in split_lines(dynamic_text(text, data)):
             story.append(Paragraph(escape(line), styles["BodyText"]))
 
     def bullets(text):
-        for line in split_lines(text):
+        for line in split_lines(dynamic_text(text, data)):
             story.append(Paragraph(escape(line), styles["Bullet"]))
+
+    def dt(text):
+        return dynamic_text(text, data)
 
     heading("Document Details")
     story.append(make_pdf_table(document_detail_rows(data), None))
@@ -568,10 +583,10 @@ def build_pdf(data):
     heading("5 Deliverables And Acceptance Criteria")
     story.append(make_pdf_table([
         ["Deliverable", "Acceptance basis"],
-        ["Working reasoning-agent prototype in Informa AWS sandbox", "Demonstrated against the selected software-request journey using dev ServiceNow and representative knowledge sources."],
+        [dt("Working reasoning-agent prototype in {customer} AWS sandbox"), "Demonstrated against the selected software-request journey using dev ServiceNow and representative knowledge sources."],
         ["Microsoft Teams colleague experience", "Stakeholders can request software in plain language and receive resolution, approval routing or escalation updates in Teams."],
         ["ServiceNow and knowledge integrations", "Prototype can check entitlement, duplicate requests and route/document work through supported public APIs."],
-        ["Handover pack and Stage 2 recommendations", "Informa IT receives architecture notes, run considerations, backlog and recommended pilot/production next steps."],
+        ["Handover pack and Stage 2 recommendations", dt("{customer} IT receives architecture notes, run considerations, backlog and recommended pilot/production next steps.")],
     ], None, bordered=True))
     heading("6 Success Metrics")
     bullets(data.get("successMeasuresText"))

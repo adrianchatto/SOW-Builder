@@ -116,13 +116,13 @@ const sample = {
   proprietaryNotice:
     "© Copyright 2026 CloudInteract Holdings All rights reserved. CloudInteract Ltd Registered Office: 4 Parkside Court, Greenhough Road, Lichfield, Staffordshire, United Kingdom, WS13 7FE.\n\nThe information and data contained or referenced in this Statement of Work document constitute confidential information of CloudInteract Holdings or its affiliates or subsidiaries. In consideration of receipt of this document, the recipient agrees to maintain such information in confidence and not to reproduce or otherwise disclose this information without the express permission of CloudInteract.",
   agreementText:
-    "This Statement of Work (“SOW”) is entered into between CloudInteract Ltd (“Service Provider”), and Informa (“Client”), pursuant to the applicable agreement between the parties.",
+    "This Statement of Work (“SOW”) is entered into between {supplier} Ltd (“Service Provider”), and {customer} (“Client”), pursuant to the applicable agreement between the parties.",
   backgroundOverview:
-    "A focused Stage 1 proof of value to demonstrate that a reasoning agent can resolve real IT software requests end to end through Microsoft Teams, using Informa's AWS account, dev ServiceNow and Confluence knowledge sources.",
+    "A focused Stage 1 proof of value to demonstrate that a reasoning agent can resolve real IT software requests end to end through Microsoft Teams, using {customer}'s AWS account, dev ServiceNow and Confluence knowledge sources.",
   backgroundRequirements:
-    "The Stage 1 objective is to prove that one reasoning agent can give Informa colleagues a fast and consistent IT resolution experience, and can escalate cleanly to the service desk when autonomous resolution is not appropriate.",
+    "The Stage 1 objective is to prove that one reasoning agent can give {customer} colleagues a fast and consistent IT resolution experience, and can escalate cleanly to the service desk when autonomous resolution is not appropriate.",
   scopeIncluded:
-    "Select one primary and one backup proof-of-value business process with Informa, centred on discrete automatable IT requests such as software approval.\nInvestigate Informa's ServiceNow configuration, workflows and existing approval process.\nDesign, create, test and deploy a self-service reasoning agent for the selected proof-of-value process.\nExpose the colleague experience through Microsoft Teams, using Power Platform Approvals where needed.\nHand over the solution to Informa IT with recommended next steps for pilot and production rollout.",
+    "Select one primary and one backup proof-of-value business process with {customer}, centred on discrete automatable IT requests such as software approval.\nInvestigate {customer}'s ServiceNow configuration, workflows and existing approval process.\nDesign, create, test and deploy a self-service reasoning agent for the selected proof-of-value process.\nExpose the colleague experience through Microsoft Teams, using Power Platform Approvals where needed.\nHand over the solution to {customer} IT with recommended next steps for pilot and production rollout.",
   scopeExclusions:
     "Production hardening, high-scale rollout and live production ServiceNow write access.\nAdditional business processes beyond the agreed Stage 1 proof of value.\nUnsupported or undocumented ServiceNow API functionality.\nStage 2 pilot, productionise and scale activities, which will be separately scoped.",
   successMeasuresText:
@@ -648,8 +648,15 @@ function documentFileBase() {
     .replace(/^-+|-+$/g, "");
 }
 
-function lines(value) {
+function dynamicText(value) {
   return String(value || "")
+    .replaceAll("{customer}", state.customer || "Client")
+    .replaceAll("{supplier}", state.supplier || "CloudInteract")
+    .replace(/\bInforma\b/g, state.customer || "Client");
+}
+
+function lines(value) {
+  return dynamicText(value)
     .split(/\n+/)
     .map((item) => item.trim())
     .filter(Boolean);
@@ -726,10 +733,10 @@ function renderPreview() {
       <h2>5 Deliverables And Acceptance Criteria</h2>
       <table class="bordered-table">
         <tr><th>Deliverable</th><th>Acceptance basis</th></tr>
-        <tr><td>Working reasoning-agent prototype in Informa AWS sandbox</td><td>Demonstrated against the selected software-request journey using dev ServiceNow and representative knowledge sources.</td></tr>
+        <tr><td>Working reasoning-agent prototype in ${escapeHtml(dynamicText("{customer}"))} AWS sandbox</td><td>Demonstrated against the selected software-request journey using dev ServiceNow and representative knowledge sources.</td></tr>
         <tr><td>Microsoft Teams colleague experience</td><td>Stakeholders can request software in plain language and receive resolution, approval routing or escalation updates in Teams.</td></tr>
         <tr><td>ServiceNow and knowledge integrations</td><td>Prototype can check entitlement, duplicate requests and route/document work through supported public APIs.</td></tr>
-        <tr><td>Handover pack and Stage 2 recommendations</td><td>Informa IT receives architecture notes, run considerations, backlog and recommended pilot/production next steps.</td></tr>
+        <tr><td>Handover pack and Stage 2 recommendations</td><td>${escapeHtml(dynamicText("{customer}"))} IT receives architecture notes, run considerations, backlog and recommended pilot/production next steps.</td></tr>
       </table>
       <h2>6 Success Metrics</h2>
       ${bulletList(state.successMeasuresText)}
