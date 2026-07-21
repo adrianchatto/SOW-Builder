@@ -459,7 +459,7 @@ function generatePoapJpegDataUrl() {
 }
 
 function generateCoverJpegDataUrl() {
-  return "gstt-template-assets/image2.png";
+  return "gstt-template-assets/cover-page.png";
 }
 
 function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
@@ -509,32 +509,8 @@ function renderPreview() {
   const optional = optionalSections.filter((item) => sectionState[item.id] === "optional");
   const poapImage = generatePoapJpegDataUrl();
   const html = `
-    <section class="sow-page cover-page template-cover">
-      <div class="cover-hero">
-        <img src="${generateCoverJpegDataUrl()}" alt="" />
-        <div class="cover-brand">Cloud<br /><span>Interact</span></div>
-        <h1>${escapeHtml(coverProjectName())}</h1>
-      </div>
-      <div class="cover-meta">
-        <h2>Document Revision History</h2>
-        <table class="cover-details">
-          <tbody>
-            <tr><th>Client</th><td>${escapeHtml(state.customer)}</td></tr>
-            <tr><th>Date Created</th><td>${escapeHtml(formatDate(new Date().toISOString().slice(0, 10)))}</td></tr>
-            <tr><th>Document Type</th><td>Statement of Work (SOW)</td></tr>
-            <tr><th>Document Name</th><td>${escapeHtml(documentName())}</td></tr>
-            <tr><th>Author</th><td>${escapeHtml(state.supplier || "CloudInteract")}</td></tr>
-          </tbody>
-        </table>
-        <table class="cover-revisions">
-          <thead>
-            <tr><th>Version</th><th>Date Modified</th><th>Description</th><th>Modified By</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>v0.1</td><td>${escapeHtml(formatDate(new Date().toISOString().slice(0, 10)))}</td><td>First draft</td><td>${escapeHtml(state.supplier || "CloudInteract")}</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <section class="sow-page cover-page">
+      <img class="cover-image" src="${generateCoverJpegDataUrl()}" alt="Statement of Work cover page" />
     </section>
 
     <section class="sow-page content-page">

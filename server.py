@@ -12,7 +12,7 @@ from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parent
 TEMPLATE_DOCX = Path("/Users/adrianchatto/Downloads/SOW GSTT AI-Outbound PoC CloudInteract (2).docx")
-COVER_ART = ROOT / "gstt-template-assets" / "image2.png"
+COVER_PAGE = ROOT / "gstt-template-assets" / "cover-page.png"
 BRAND_PURPLE = "5B2EE6"
 BRAND_BLUE = "0877EA"
 BRAND_PINK = "EF0F64"
@@ -190,104 +190,7 @@ def render_poap_jpeg(phases):
 
 
 def render_cover_jpeg(data):
-    from PIL import Image, ImageDraw, ImageFont
-
-    width, height = 1284, 1800
-    image = Image.new("RGB", (width, height), "white")
-    draw = ImageDraw.Draw(image)
-
-    def font(size, bold=False):
-        candidates = [
-            "/System/Library/Fonts/Supplemental/Arial Bold.ttf" if bold else "/System/Library/Fonts/Supplemental/Arial.ttf",
-            "/System/Library/Fonts/Helvetica.ttc",
-        ]
-        for candidate in candidates:
-            try:
-                return ImageFont.truetype(candidate, size)
-            except Exception:
-                pass
-        return ImageFont.load_default()
-
-    def paste_fit(path, box, opacity=1):
-        if not path.exists():
-            return
-        img = Image.open(path).convert("RGBA")
-        x, y, w, h = box
-        img.thumbnail((w, h), Image.LANCZOS)
-        if opacity < 1:
-            alpha = img.getchannel("A")
-            alpha = alpha.point(lambda value: int(value * opacity))
-            img.putalpha(alpha)
-        image.paste(img, (x, y), img)
-
-    def wrap(text, x, y, max_width, line_height, fnt, fill, max_lines=2, stroke_width=0, stroke_fill=None):
-        words = str(text).split()
-        lines, line = [], ""
-        for word in words:
-            candidate = f"{line} {word}".strip()
-            bbox = draw.textbbox((0, 0), candidate, font=fnt)
-            if bbox[2] - bbox[0] > max_width and line:
-                lines.append(line)
-                line = word
-            else:
-                line = candidate
-        if line:
-            lines.append(line)
-        for index, item in enumerate(lines[:max_lines]):
-            draw.text(
-                (x, y + index * line_height),
-                item,
-                fill=fill,
-                font=fnt,
-                stroke_width=stroke_width,
-                stroke_fill=stroke_fill or fill,
-            )
-
-    paste_fit(COVER_ART, (140, 52, 1144, 830), opacity=0.34)
-    draw.text((360, 226), "Cloud", fill="white", font=font(47, True))
-    draw.text((364, 272), "Interact", fill="white", font=font(22))
-    wrap(cover_project_name(data), 174, 390, 650, 66, font(54), "white", max_lines=3, stroke_width=1, stroke_fill="#9f9f9f")
-
-    purple = "#7d4ddb"
-    lavender = "#cdb9e9"
-    text_black = "#000000"
-    draw.text((140, 1270), "Document Revision History", fill="#5a2aa5", font=font(30, True))
-
-    rows = [
-        ["Client", data.get("customer", "")],
-        ["Date Created", "21 Jul 2026"],
-        ["Document Type", "Statement of Work (SOW)"],
-        ["Document Name", document_name(data)],
-        ["Author", data.get("supplier", "CloudInteract")],
-    ]
-    x, y = 140, 1334
-    label_w, value_w, row_h = 188, 720, 36
-    for label, value in rows:
-        height = 58 if label == "Document Name" else row_h
-        draw.rectangle((x, y, x + label_w, y + height), fill=lavender, outline=purple, width=2)
-        draw.rectangle((x + label_w, y, x + label_w + value_w, y + height), fill="white", outline=purple, width=2)
-        draw.text((x + 6, y + 6), label, fill=text_black, font=font(24, True))
-        wrap(value, x + label_w + 8, y + 6, value_w - 16, 27, font(24), text_black, 2)
-        y += height
-
-    y += 52
-    headers = ["Version", "Date Modified", "Description", "Modified By"]
-    widths = [96, 168, 148, 164]
-    cell_x = x
-    for header, col_w in zip(headers, widths):
-        draw.rectangle((cell_x, y, cell_x + col_w, y + row_h), fill=lavender, outline=purple, width=2)
-        draw.text((cell_x + 6, y + 6), header, fill=text_black, font=font(24, True))
-        cell_x += col_w
-    y += row_h
-    values = ["v0.1", "21 Jul 2026", "First draft", data.get("supplier", "CloudInteract")]
-    cell_x = x
-    for value, col_w in zip(values, widths):
-        draw.rectangle((cell_x, y, cell_x + col_w, y + row_h), fill="white", outline=purple, width=2)
-        draw.text((cell_x + 6, y + 6), value, fill=text_black, font=font(22))
-        cell_x += col_w
-    buffer = BytesIO()
-    image.save(buffer, format="JPEG", quality=94)
-    return buffer.getvalue()
+    return COVER_PAGE.read_bytes()
 
 
 def section_blocks(data):
