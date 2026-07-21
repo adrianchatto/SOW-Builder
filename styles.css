@@ -629,7 +629,6 @@ body.is-file-mode .file-warning {
 
 .cover-page {
   aspect-ratio: 1284 / 1800;
-  width: min(100%, 630px);
 }
 
 .content-page {
