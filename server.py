@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
-import cgi
+import datetime as dt
+from email.parser import BytesParser
+from email.policy import default
 import json
+import os
 import re
+import sqlite3
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
 
 ROOT = Path(__file__).resolve().parent
+DB_PATH = Path(os.environ.get("SOW_BUILDER_DB", ROOT / "sow_builder.db"))
 TEMPLATE_DOCX = Path("/Users/adrianchatto/Downloads/Informa-SOW-draft (4).docx")
 COVER_LOGO = ROOT / "gstt-template-assets" / "image1.png"
 BRAND_PURPLE = "5B2EE6"
@@ -21,6 +27,56 @@ BRAND_GREEN = "0AA85A"
 BRAND_INK = "17202A"
 BRAND_LINE = "DFE4EA"
 PHASE_COLOURS = [BRAND_PURPLE, BRAND_PINK, BRAND_ORANGE, BRAND_GREEN, "6B35D4", BRAND_BLUE, "0D7EEA"]
+
+
+def init_db():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sows (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                opportunity_number TEXT,
+                customer TEXT,
+                project TEXT,
+                payload TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.commit()
+
+
+def json_response(handler, payload, status=200):
+    body = json.dumps(payload).encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def parse_uploaded_file(handler):
+    content_type = handler.headers.get("Content-Type", "")
+    length = int(handler.headers.get("Content-Length", "0"))
+    body = handler.rfile.read(length)
+    raw = (
+        f"Content-Type: {content_type}\r\n"
+        "MIME-Version: 1.0\r\n\r\n"
+    ).encode("utf-8") + body
+    message = BytesParser(policy=default).parsebytes(raw)
+    if not message.is_multipart():
+        raise ValueError("Expected multipart upload")
+    for part in message.iter_parts():
+        if part.get_content_disposition() != "form-data":
+            continue
+        if part.get_param("name", header="content-disposition") != "file":
+            continue
+        filename = part.get_filename()
+        if not filename:
+            break
+        return filename, part.get_payload(decode=True) or b""
+    raise ValueError("Missing file")
 
 
 def extract_pptx(data):
@@ -252,63 +308,6 @@ def render_cover_jpeg(data):
     return buffer.getvalue()
 
 
-def section_blocks(data):
-    blocks = [
-        ("Agreement", [
-            ("p", f"This Statement of Work (“SOW”) is entered into between {data.get('supplier', 'CloudInteract')} Ltd (“Service Provider”), and {data.get('customer', '')} (“Client”), pursuant to the applicable agreement between the parties.")
-        ]),
-        ("Background", [
-            ("h3", "Customer Overview"),
-            ("p", data.get("overview", "")),
-            ("h3", "Customer Requirements"),
-            ("p", "The Stage 1 objective is to prove that one reasoning agent can give Informa colleagues a fast and consistent IT resolution experience, and can escalate cleanly to the service desk when autonomous resolution is not appropriate."),
-        ]),
-        ("Scope", [
-            ("h3", "Included"),
-            ("ul", data.get("scope", [])),
-            ("h3", "Boundaries And Exclusions"),
-            ("ul", data.get("exclusions", [])),
-        ]),
-        ("Deliverables And Acceptance Criteria", [
-            ("table", [
-                ["Deliverable", "Acceptance basis"],
-                ["Working reasoning-agent prototype in Informa AWS sandbox", "Demonstrated against the selected software-request journey using dev ServiceNow and representative knowledge sources."],
-                ["Microsoft Teams colleague experience", "Stakeholders can request software in plain language and receive resolution, approval routing or escalation updates in Teams."],
-                ["ServiceNow and knowledge integrations", "Prototype can check entitlement, duplicate requests and route/document work through supported public APIs."],
-                ["Handover pack and Stage 2 recommendations", "Informa IT receives architecture notes, run considerations, backlog and recommended pilot/production next steps."],
-            ]),
-            ("h3", "Success Measures"),
-            ("ul", data.get("success", [])),
-        ]),
-        ("Plan On A Page", [("poap", data.get("phases", []))]),
-        ("Roles And Responsibilities", [("table", [["Party", "Responsibilities"]] + data.get("roles", []))]),
-        ("Dependencies", [
-            ("ul", data.get("dependencies", [])),
-            ("h3", "Open Questions To Confirm"),
-            ("ul", data.get("openQuestions", [])),
-        ]),
-        ("Commercials", [("table", [
-            ["Fixed price", f"{data.get('price', '')} for Stage 1 proof of value only."],
-            ["Payment profile", "25% on start and 75% on delivery, subject to commercial review."],
-            ["Resource profile", "Technical architect/engineer, project management and business analysis."],
-        ])]),
-        ("Change Control", [("p", "Any material change to scope, assumptions, timeline, deliverables, environments, integrations or acceptance criteria will be documented and agreed by both parties before the additional work is performed.")]),
-        ("Data Protection, Security And AI Governance", [("p", "The Stage 1 prototype is expected to run in non-production environments using dev or representative data. Production security review, DPIA support, live ServiceNow write access, SSO hardening, audit requirements and operational support are Stage 2 activities unless expressly added to this SOW.")]),
-    ]
-    optional = [
-        ("ipDetail", "Intellectual Property And Reuse", "Unless otherwise agreed in signed commercial terms, the customer owns customer-specific outputs and data supplied by the customer. CloudInteract retains ownership of pre-existing tools, methods, know-how, templates and reusable accelerators used to deliver the work."),
-        ("confidentiality", "Confidentiality", "Each party will protect confidential information disclosed in connection with this SOW. Where a separate NDA or master agreement exists, that agreement will take precedence over this summary wording."),
-        ("assurance", "Assurance And Oversight", "The prototype will include outcome verification, human review for uncertain or failed cases, audit logging for agent decisions and visibility of agreed success metrics. Any standing auto-approval rule must be agreed before use."),
-        ("stage2", "Stage 2 Roadmap", "Following Stage 1, the recommended path is a controlled pilot with a friendly cohort, then production hardening, phased rollout by segment, additional channels and expansion into further use cases."),
-        ("legalBoilerplate", "Extended Legal Boilerplate", "Final legal terms should confirm warranty, liability, assignment, third-party rights, counterparts, governing law and jurisdiction, either in this SOW or in the governing master services agreement."),
-    ]
-    for key, title, text in optional:
-        if optional_enabled(data, key):
-            blocks.append((title, [("p", text)]))
-    blocks.append(("Signature", [("table", [[f"For {data.get('customer', '')}", f"For {data.get('supplier', '')}"], ["Name:\n\nTitle:\n\nDate:", "Name:\n\nTitle:\n\nDate:"]])]))
-    return blocks
-
-
 def version_rows(data):
     return [
         ["Version", "Date Modified", "Description", "Modified By"],
@@ -373,6 +372,56 @@ def toc_rows(data):
             rows.append([number, title])
     rows.extend([["", "Commercials"], ["", "Signature"]])
     return rows
+
+
+def commercial_rows(data):
+    rows = []
+    for row in data.get("commercialMilestones") or []:
+        title = str(row.get("title") or "").strip()
+        amount = str(row.get("amount") or "").strip()
+        if title or amount:
+            rows.append([title or "TBD", amount or "TBD"])
+    if not rows:
+        rows.append(["TBD", "TBD"])
+    return [["Milestone", "Amount"]] + rows
+
+
+def add_word_toc(doc):
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    from docx.shared import Pt, RGBColor
+
+    title = doc.add_paragraph()
+    title_run = title.add_run("Table of Contents")
+    title_run.bold = True
+    title_run.font.size = Pt(17)
+    title_run.font.color.rgb = RGBColor(23, 32, 42)
+    paragraph = doc.add_paragraph()
+    run = paragraph.add_run()
+    begin = OxmlElement("w:fldChar")
+    begin.set(qn("w:fldCharType"), "begin")
+    run._r.append(begin)
+
+    instr = OxmlElement("w:instrText")
+    instr.set(qn("xml:space"), "preserve")
+    instr.text = 'TOC \\o "1-3" \\h \\z \\u'
+    run._r.append(instr)
+
+    separate = OxmlElement("w:fldChar")
+    separate.set(qn("w:fldCharType"), "separate")
+    run._r.append(separate)
+    paragraph.add_run("Right-click and update field to refresh the table of contents.")
+
+    end = OxmlElement("w:fldChar")
+    end.set(qn("w:fldCharType"), "end")
+    paragraph.add_run()._r.append(end)
+
+    settings = doc.settings.element
+    update_fields = settings.find(qn("w:updateFields"))
+    if update_fields is None:
+        update_fields = OxmlElement("w:updateFields")
+        settings.append(update_fields)
+    update_fields.set(qn("w:val"), "true")
 
 
 def build_docx(data):
@@ -461,37 +510,44 @@ def build_docx(data):
     def dt(text):
         return dynamic_text(text, data)
 
+    def add_front_title(text):
+        paragraph = doc.add_paragraph()
+        run = paragraph.add_run(text)
+        run.bold = True
+        run.font.size = Pt(17)
+        run.font.color.rgb = RGBColor(23, 32, 42)
+        return paragraph
+
     doc.add_picture(BytesIO(render_cover_jpeg(data)), width=Inches(7.05))
 
     doc.add_page_break()
-    doc.add_heading("Document Details", level=1)
+    add_front_title("Document Details")
     add_table(document_detail_rows(data))
-    doc.add_heading("Document Revision History", level=1)
+    add_front_title("Document Revision History")
     add_table(version_rows(data))
     for _ in range(14):
         doc.add_paragraph("")
-    doc.add_heading("Proprietary Notice", level=1)
+    add_front_title("Proprietary Notice")
     add_paragraphs(data.get("proprietaryNotice"))
     doc.add_page_break()
 
-    doc.add_heading("Table of Contents", level=1)
-    add_table(toc_rows(data))
+    add_word_toc(doc)
     doc.add_page_break()
 
     doc.add_heading("1 Agreement", level=1)
     add_paragraphs(data.get("agreementText"))
     doc.add_heading("2 Background", level=1)
-    doc.add_heading("2.1 Customer Overview", level=3)
+    doc.add_heading("2.1 Customer Overview", level=2)
     add_paragraphs(data.get("backgroundOverview"))
-    doc.add_heading("2.2 Customer Requirements", level=3)
+    doc.add_heading("2.2 Customer Requirements", level=2)
     add_paragraphs(data.get("backgroundRequirements"))
     doc.add_heading("3 Scope", level=1)
-    doc.add_heading("3.1 Included", level=3)
+    doc.add_heading("3.1 Included", level=2)
     add_bullets(data.get("scopeIncluded"))
-    doc.add_heading("3.2 Boundaries And Exclusions", level=3)
+    doc.add_heading("3.2 Boundaries And Exclusions", level=2)
     add_bullets(data.get("scopeExclusions"))
     doc.add_heading("4 Project Plan", level=1)
-    doc.add_heading("4.1 Plan On A Page", level=3)
+    doc.add_heading("4.1 Plan On A Page", level=2)
     doc.add_paragraph("The plan below is indicative and assumes timely access, data, stakeholder availability and governance decisions.")
     doc.add_picture(BytesIO(render_poap_jpeg(data.get("phases", []))), width=Inches(7.0))
     doc.add_heading("5 Deliverables And Acceptance Criteria", level=1)
@@ -506,17 +562,14 @@ def build_docx(data):
     add_bullets(data.get("successMeasuresText"))
     doc.add_heading("7 Dependencies", level=1)
     add_bullets(data.get("dependenciesText"))
-    doc.add_heading("Open Questions To Confirm", level=3)
-    for item in data.get("openQuestions", []):
-        doc.add_paragraph(str(item), style="List Bullet")
     doc.add_heading("8 Change Control", level=1)
     add_paragraphs(data.get("changeControlText"))
     doc.add_heading("9 Data Protection, Security And AI Governance", level=1)
     add_paragraphs(data.get("securityText"))
     doc.add_heading("Commercials", level=1)
-    add_paragraphs(data.get("commercialsText"))
+    add_table(commercial_rows(data), bordered=True)
     doc.add_heading("Signature", level=1)
-    add_table([[f"For {data.get('customer', '')}", f"For {data.get('supplier', '')}"], ["Name:\n\nTitle:\n\nDate:", "Name:\n\nTitle:\n\nDate:"]])
+    add_table([[f"For {data.get('customer', '')}", f"For {data.get('supplier', '')}"], ["Name:\n\nTitle:\n\nDate:", "Name:\n\nTitle:\n\nDate:"]], bordered=True)
 
     buffer = BytesIO()
     doc.save(buffer)
@@ -626,9 +679,6 @@ def build_pdf(data):
     bullets(data.get("successMeasuresText"))
     heading("7 Dependencies")
     bullets(data.get("dependenciesText"))
-    heading("Open Questions To Confirm", level=3)
-    for item in data.get("openQuestions", []):
-        story.append(Paragraph(escape(str(item)), styles["Bullet"]))
     heading("8 Change Control")
     paras(data.get("changeControlText"))
     heading("9 Data Protection, Security And AI Governance")
@@ -647,12 +697,43 @@ def build_pdf(data):
             story.append(Paragraph(escape(text), styles["BodyText"]))
 
     heading("Commercials")
-    paras(data.get("commercialsText"))
+    story.append(make_pdf_table(commercial_rows(data), None, bordered=True))
     heading("Signature")
-    story.append(make_pdf_table([[f"For {data.get('customer', '')}", f"For {data.get('supplier', '')}"], ["Name:\n\nTitle:\n\nDate:", "Name:\n\nTitle:\n\nDate:"]], None))
+    story.append(make_pdf_table([[f"For {data.get('customer', '')}", f"For {data.get('supplier', '')}"], ["Name:\n\nTitle:\n\nDate:", "Name:\n\nTitle:\n\nDate:"]], None, bordered=True))
 
     doc.build(story, onFirstPage=lambda canvas, doc: None, onLaterPages=pdf_footer)
     return buffer.getvalue()
+
+
+def improve_with_openrouter(text):
+    api_key = os.environ.get("OPENROUTER_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENROUTER_API_KEY is not set on the server.")
+    payload = {
+        "model": os.environ.get("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet"),
+        "messages": [
+            {
+                "role": "system",
+                "content": "Improve this Statement of Work section. Keep the commercial/legal meaning, use concise professional UK English, and return only the improved text.",
+            },
+            {"role": "user", "content": text},
+        ],
+        "temperature": 0.2,
+    }
+    request = Request(
+        "https://openrouter.ai/api/v1/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "http://127.0.0.1:5173",
+            "X-Title": "SOW Builder",
+        },
+        method="POST",
+    )
+    with urlopen(request, timeout=45) as response:
+        result = json.loads(response.read().decode("utf-8"))
+    return result["choices"][0]["message"]["content"].strip()
 
 
 def make_pdf_table(rows, widths, bordered=False):
@@ -731,28 +812,47 @@ class Handler(SimpleHTTPRequestHandler):
         parsed = urlparse(path).path.lstrip("/")
         return str((ROOT / parsed).resolve())
 
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/sows":
+            self.handle_sow_list()
+            return
+        if parsed.path.startswith("/api/sows/"):
+            self.handle_sow_get(parsed.path.rsplit("/", 1)[-1])
+            return
+        super().do_GET()
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/sows/"):
+            self.handle_sow_delete(parsed.path.rsplit("/", 1)[-1])
+            return
+        self.send_error(404)
+
     def do_POST(self):
         if self.path.startswith("/api/export/"):
             self.handle_export()
+            return
+
+        if self.path == "/api/sows":
+            self.handle_sow_save()
+            return
+
+        if self.path == "/api/improve":
+            self.handle_improve()
             return
 
         if self.path != "/api/analyse":
             self.send_error(404)
             return
 
-        form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ={"REQUEST_METHOD": "POST"})
-        file_item = form["file"] if "file" in form else None
-        if file_item is None or not getattr(file_item, "filename", ""):
-            self.send_error(400, "Missing file")
-            return
-
-        data = file_item.file.read()
         try:
-            text = extract_text(file_item.filename, data)
-            payload = {"filename": file_item.filename, "text": text}
+            filename, data = parse_uploaded_file(self)
+            text = extract_text(filename, data)
+            payload = {"filename": filename, "text": text}
             self.send_response(200)
         except Exception as exc:
-            payload = {"filename": file_item.filename, "error": str(exc)}
+            payload = {"error": str(exc)}
             self.send_response(500)
 
         body = json.dumps(payload).encode("utf-8")
@@ -761,11 +861,104 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def read_json_body(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        return json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+
+    def handle_improve(self):
+        try:
+            payload = self.read_json_body()
+            improved = improve_with_openrouter(payload.get("text", ""))
+            json_response(self, {"text": improved})
+        except Exception as exc:
+            json_response(self, {"error": str(exc)}, 500)
+
+    def handle_sow_list(self):
+        init_db()
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT id, opportunity_number, customer, project, updated_at
+                FROM sows
+                ORDER BY updated_at DESC
+                """
+            ).fetchall()
+        json_response(
+            self,
+            {
+                "items": [
+                    {
+                        "id": row["id"],
+                        "opportunityNumber": row["opportunity_number"],
+                        "customer": row["customer"],
+                        "project": row["project"],
+                        "updatedAt": row["updated_at"],
+                    }
+                    for row in rows
+                ]
+            },
+        )
+
+    def handle_sow_get(self, item_id):
+        init_db()
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute("SELECT * FROM sows WHERE id = ?", (item_id,)).fetchone()
+        if not row:
+            json_response(self, {"error": "Saved SOW not found"}, 404)
+            return
+        json_response(
+            self,
+            {
+                "item": {
+                    "id": row["id"],
+                    "opportunityNumber": row["opportunity_number"],
+                    "customer": row["customer"],
+                    "project": row["project"],
+                    "updatedAt": row["updated_at"],
+                    "data": json.loads(row["payload"]),
+                }
+            },
+        )
+
+    def handle_sow_save(self):
+        init_db()
+        try:
+            data = self.read_json_body()
+            now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute(
+                    """
+                    INSERT INTO sows (opportunity_number, customer, project, payload, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        data.get("opportunityNumber"),
+                        data.get("customer"),
+                        data.get("project"),
+                        json.dumps(data),
+                        now,
+                        now,
+                    ),
+                )
+                item_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                conn.commit()
+            json_response(self, {"id": item_id, "updatedAt": now})
+        except Exception as exc:
+            json_response(self, {"error": str(exc)}, 500)
+
+    def handle_sow_delete(self, item_id):
+        init_db()
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("DELETE FROM sows WHERE id = ?", (item_id,))
+            conn.commit()
+        json_response(self, {"ok": True})
+
     def handle_export(self):
         format_name = self.path.rsplit("/", 1)[-1]
-        length = int(self.headers.get("Content-Length", "0"))
         try:
-            data = json.loads(self.rfile.read(length).decode("utf-8"))
+            data = self.read_json_body()
             if format_name == "docx":
                 body = build_docx(data)
                 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -796,6 +989,9 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = ThreadingHTTPServer(("127.0.0.1", 5173), Handler)
-    print("SOW Builder running at http://127.0.0.1:5173")
+    init_db()
+    host = os.environ.get("SOW_BUILDER_HOST", "127.0.0.1")
+    port = int(os.environ.get("SOW_BUILDER_PORT", "5173"))
+    server = ThreadingHTTPServer((host, port), Handler)
+    print(f"SOW Builder running at http://{host}:{port}")
     server.serve_forever()

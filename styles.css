@@ -316,6 +316,88 @@ body.is-file-mode .file-warning {
   gap: 2px 14px;
 }
 
+.commercial-editor {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.panel-heading.compact {
+  align-items: flex-start;
+}
+
+.commercial-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.commercial-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.65fr) auto;
+  gap: 10px;
+  align-items: end;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.commercial-row .field {
+  margin-top: 0;
+}
+
+.remove-commercial {
+  margin-bottom: 0;
+}
+
+.empty-commercials {
+  border: 1px dashed #cbd3df;
+  border-radius: 8px;
+  padding: 12px;
+  color: var(--muted);
+  background: #f9fafb;
+}
+
+.saved-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.saved-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: #ffffff;
+}
+
+.saved-card strong,
+.saved-card span,
+.saved-card small {
+  display: block;
+}
+
+.saved-card span {
+  color: var(--ink);
+  margin-top: 3px;
+}
+
+.saved-card small {
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.saved-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .notice {
   margin-top: 18px;
   background: #fff8e8;
@@ -861,7 +943,9 @@ body.is-file-mode .file-warning {
 
 @media (max-width: 560px) {
   .form-grid,
-  .phase-row .row-controls {
+  .phase-row .row-controls,
+  .commercial-row,
+  .saved-card {
     grid-template-columns: 1fr;
   }
 

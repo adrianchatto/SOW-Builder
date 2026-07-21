@@ -1,0 +1,6 @@
+.DS_Store
+__pycache__/
+*.pyc
+sow_builder.db
+sow_builder.db-*
+.env

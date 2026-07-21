@@ -22,6 +22,7 @@
           <button class="step" data-panel="sections">2. Sections</button>
           <button class="step" data-panel="timeline">3. Plan</button>
           <button class="step" data-panel="preview">4. Preview</button>
+          <button class="step" data-panel="saved">5. Saved</button>
         </nav>
 
         <div class="status-box">
@@ -41,6 +42,7 @@
           </div>
           <div class="topbar-actions">
             <button class="ghost-button" id="loadSample">Load Informa sample</button>
+            <button class="ghost-button" id="saveCurrentSow">Save SOW</button>
             <button class="primary-button" id="printSow">Export / Print</button>
           </div>
         </section>
@@ -119,6 +121,16 @@
                 <span>Version comment</span>
                 <textarea id="versionComment" rows="3">First draft</textarea>
               </label>
+              <div class="commercial-editor">
+                <div class="panel-heading compact">
+                  <div>
+                    <h3>Commercial Milestones</h3>
+                    <p class="helper">Add payment milestones for the Commercials table. Leave blank to show TBD.</p>
+                  </div>
+                  <button class="ghost-button" id="addCommercialMilestone" type="button">Add milestone</button>
+                </div>
+                <div id="commercialMilestones" class="commercial-list"></div>
+              </div>
               <div class="notice">
                 <strong>Reference document note</strong>
                 The supplied PDF is an NDA. I have treated it as legal boilerplate inspiration only, and the questions below ask which clauses belong in the SOW template.
@@ -173,6 +185,19 @@
             </div>
           </div>
           <article id="sowPreview" class="sow-document"></article>
+        </section>
+
+        <section class="panel" id="saved">
+          <div class="work-panel">
+            <div class="panel-heading">
+              <div>
+                <h3>Saved SOWs</h3>
+                <p class="helper">Save multiple drafts locally and load them back into the builder.</p>
+              </div>
+              <button class="ghost-button" id="refreshSavedSows">Refresh</button>
+            </div>
+            <div id="savedSows" class="saved-list"></div>
+          </div>
         </section>
       </main>
     </div>

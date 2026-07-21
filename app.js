@@ -50,8 +50,7 @@ const mandatoryContent = [
   { id: "successMeasuresText", title: "Success Metrics", rows: 5 },
   { id: "dependenciesText", title: "Dependencies", rows: 6 },
   { id: "changeControlText", title: "Change Control", rows: 4 },
-  { id: "securityText", title: "Data Protection, Security And AI Governance", rows: 4 },
-  { id: "commercialsText", title: "Commercials", rows: 4 }
+  { id: "securityText", title: "Data Protection, Security And AI Governance", rows: 4 }
 ];
 
 const sample = {
@@ -108,11 +107,6 @@ const sample = {
     { name: "Go Live & Handover", sprint: "Sprint 5", start: 8, weeks: 1, milestone: "POV Playback" },
     { name: "Hypercare", sprint: "Sprint 6", start: 9, weeks: 2, milestone: "Handover Complete" }
   ],
-  openQuestions: [
-    "Should ServiceNow's native approval workflow own approvals, or should the AWS agent orchestrate them?",
-    "Should ServiceNow raise the documenting ticket, or should the agent create it while ServiceNow remains the system of record?",
-    "Which legal boilerplate is already covered by CloudInteract's standard MSA and therefore should not be repeated in every SOW?"
-  ],
   proprietaryNotice:
     "© Copyright 2026 CloudInteract Holdings All rights reserved. CloudInteract Ltd Registered Office: 4 Parkside Court, Greenhough Road, Lichfield, Staffordshire, United Kingdom, WS13 7FE.\n\nThe information and data contained or referenced in this Statement of Work document constitute confidential information of CloudInteract Holdings or its affiliates or subsidiaries. In consideration of receipt of this document, the recipient agrees to maintain such information in confidence and not to reproduce or otherwise disclose this information without the express permission of CloudInteract.",
   agreementText:
@@ -133,8 +127,7 @@ const sample = {
     "Any material change to scope, assumptions, timeline, deliverables, environments, integrations or acceptance criteria will be documented and agreed by both parties before the additional work is performed.",
   securityText:
     "The Stage 1 prototype is expected to run in non-production environments using dev or representative data. Production security review, DPIA support, live ServiceNow write access, SSO hardening, audit requirements and operational support are Stage 2 activities unless expressly added to this SOW.",
-  commercialsText:
-    "Fixed price: £20,000 for Stage 1 proof of value only.\nPayment profile: 25% on start and 75% on delivery, subject to commercial review.\nResource profile: Technical architect/engineer, project management and business analysis."
+  commercialMilestones: []
 };
 
 let state = structuredClone(sample);
@@ -185,7 +178,7 @@ function bindInputs() {
   $("#analyseNotes").addEventListener("click", () => {
     const notes = $("#sourceNotes").value.trim();
     if (notes) {
-      state.overview = notes.split(/\n+/).slice(0, 3).join(" ");
+      applyDeckAnalysis(notes);
     }
     renderAll();
   });
@@ -207,6 +200,14 @@ function bindInputs() {
     renderAll();
   });
 
+  $("#addCommercialMilestone").addEventListener("click", () => {
+    state.commercialMilestones.push({ title: "", amount: "" });
+    renderAll();
+  });
+
+  $("#saveCurrentSow").addEventListener("click", saveCurrentSow);
+  $("#refreshSavedSows").addEventListener("click", loadSavedSows);
+
   $("#printSow").addEventListener("click", () => {
     showPanel("preview");
     window.setTimeout(() => window.print(), 100);
@@ -224,6 +225,8 @@ function bindInputs() {
     coverAssetsReady = true;
     renderPreview();
   });
+
+  loadSavedSows();
 }
 
 function waitForCoverAssets() {
@@ -257,10 +260,69 @@ async function updateFilename(event, selector) {
     const result = await response.json();
     if (!response.ok || result.error) throw new Error(result.error || "Upload analysis failed");
     $("#sourceNotes").value = result.text.slice(0, 16000);
+    if (selector === "#deckName") {
+      applyDeckAnalysis(result.text, file.name);
+      syncForm();
+      renderAll();
+    }
   } catch (error) {
     $("#sourceNotes").value = `Could not automatically extract ${file.name}.\n\n${error.message}\n\nPaste extracted notes here and click Refresh Draft From Inputs.`;
   } finally {
     $("#sourceNotes").placeholder = previous;
+  }
+}
+
+function extractLines(text) {
+  return String(text || "")
+    .split(/\n+/)
+    .map((line) => line.replace(/^[-•\d.)\s]+/, "").trim())
+    .filter(Boolean)
+    .filter((line) => !/^--- SLIDE \d+ ---$/i.test(line));
+}
+
+function inferFromDeck(text, filename = "") {
+  const lines = extractLines(text);
+  const fileBase = filename.replace(/\.[^.]+$/, "");
+  const fileParts = fileBase.split(/\s+-\s+|\s+–\s+/).map((part) => part.trim()).filter(Boolean);
+  const opportunityNumber = (filename.match(/\b[A-Z]{2,}\d{2,}\b/i) || text.match(/\b[A-Z]{2,}\d{2,}\b/i) || [state.opportunityNumber])[0];
+  const banned = /^(cloudinteract|statement of work|agenda|contents|thank you|confidential)$/i;
+  const customer =
+    (fileParts.length > 1 ? fileParts[1].replace(/\b(ai|agent|poc|prototype|solution|deck|v\d+)\b.*$/i, "").trim() : "") ||
+    lines.find((line) => /^[A-Z][A-Za-z0-9&.' -]{2,40}$/.test(line) && !banned.test(line)) ||
+    state.customer;
+  const firstTitle = lines.find((line) => line.length > 8 && line.length < 90 && /(agent|poc|prototype|solution|automation|platform|service|workflow|transformation|outbound|inbound|knowledge)/i.test(line));
+  const project =
+    (fileParts.length > 2 ? fileParts.slice(2).join(" - ") : "") ||
+    firstTitle ||
+    state.project;
+  const useful = lines.filter((line) => line.length > 35 && !/^(agenda|contents|thank)/i.test(line));
+  return {
+    opportunityNumber,
+    customer,
+    project: project.replace(/\bv\d+$/i, "").trim(),
+    overview: useful.slice(0, 3).join(" "),
+    scope: useful.slice(3, 8),
+    success: useful.filter((line) => /(success|measure|target|kpi|outcome|reduce|increase|improve|accuracy|resolution|routing)/i.test(line)).slice(0, 5),
+    dependencies: useful.filter((line) => /(access|dependency|serviceNow|aws|teams|data|security|sme|approval|environment)/i.test(line)).slice(0, 5)
+  };
+}
+
+function applyDeckAnalysis(text, filename = "") {
+  const draft = inferFromDeck(text, filename);
+  state.opportunityNumber = draft.opportunityNumber || state.opportunityNumber;
+  state.customer = draft.customer || state.customer;
+  state.project = draft.project || state.project;
+  if (draft.overview) {
+    state.backgroundOverview = draft.overview;
+  }
+  if (draft.scope.length) {
+    state.scopeIncluded = draft.scope.join("\n");
+  }
+  if (draft.success.length) {
+    state.successMeasuresText = draft.success.join("\n");
+  }
+  if (draft.dependencies.length) {
+    state.dependenciesText = draft.dependencies.join("\n");
   }
 }
 
@@ -282,6 +344,90 @@ function syncForm() {
     const input = $(`#${id}`);
     if (input) input.value = state[id];
   });
+}
+
+function commercialRows() {
+  const rows = (state.commercialMilestones || [])
+    .map((row) => ({
+      title: String(row.title || "").trim(),
+      amount: String(row.amount || "").trim()
+    }))
+    .filter((row) => row.title || row.amount);
+  return rows.length ? rows : [{ title: "TBD", amount: "TBD" }];
+}
+
+async function loadSavedSows() {
+  const target = $("#savedSows");
+  if (!target) return;
+  target.innerHTML = `<div class="empty-commercials">Loading saved SOWs...</div>`;
+  try {
+    const response = await fetch("/api/sows");
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Could not load saved SOWs");
+    renderSavedSows(result.items || []);
+  } catch (error) {
+    target.innerHTML = `<div class="empty-commercials">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function renderSavedSows(items) {
+  $("#savedSows").innerHTML = items.length
+    ? items
+        .map(
+          (item) => `
+            <div class="saved-card">
+              <div>
+                <strong>${escapeHtml(item.customer || "Untitled client")}</strong>
+                <span>${escapeHtml(item.project || "Untitled SOW")}</span>
+                <small>${escapeHtml(item.opportunityNumber || "No opportunity number")} · ${escapeHtml(item.updatedAt || "")}</small>
+              </div>
+              <div class="saved-actions">
+                <button class="ghost-button" type="button" data-load-sow="${item.id}">Load</button>
+                <button class="ghost-button" type="button" data-delete-sow="${item.id}">Delete</button>
+              </div>
+            </div>`
+        )
+        .join("")
+    : `<div class="empty-commercials">No saved SOWs yet.</div>`;
+
+  $$("[data-load-sow]").forEach((button) => {
+    button.addEventListener("click", () => loadSavedSow(button.dataset.loadSow));
+  });
+  $$("[data-delete-sow]").forEach((button) => {
+    button.addEventListener("click", () => deleteSavedSow(button.dataset.deleteSow));
+  });
+}
+
+async function saveCurrentSow() {
+  const response = await fetch("/api/sows", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(exportPayload())
+  });
+  if (!response.ok) {
+    alert("Could not save SOW.");
+    return;
+  }
+  await loadSavedSows();
+}
+
+async function loadSavedSow(id) {
+  const response = await fetch(`/api/sows/${id}`);
+  const result = await response.json();
+  if (!response.ok || !result.item) {
+    alert("Could not load saved SOW.");
+    return;
+  }
+  state = { ...structuredClone(sample), ...result.item.data };
+  sectionState = result.item.data.optionalSections || sectionState;
+  syncForm();
+  renderAll();
+  showPanel("preview");
+}
+
+async function deleteSavedSow(id) {
+  await fetch(`/api/sows/${id}`, { method: "DELETE" });
+  await loadSavedSows();
 }
 
 function showPanel(id) {
@@ -342,23 +488,80 @@ function renderSections() {
   });
 
   $$("#mandatoryEditor .improve-button").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       const id = button.dataset.improve;
       const input = $(`#${id}`);
-      input.value = improveText(input.value);
+      const original = button.textContent;
+      button.textContent = "Improving...";
+      button.disabled = true;
+      input.value = await improveText(input.value);
       state[id] = input.value;
+      button.textContent = original;
+      button.disabled = false;
       renderPreview();
     });
   });
 }
 
-function improveText(value) {
+function renderCommercialEditor() {
+  const rows = state.commercialMilestones || [];
+  $("#commercialMilestones").innerHTML = rows.length
+    ? rows
+        .map(
+          (row, index) => `
+            <div class="commercial-row">
+              <label class="field">
+                <span>Milestone title</span>
+                <input data-commercial="${index}" data-key="title" value="${escapeHtml(row.title || "")}" placeholder="e.g. Contract signature" />
+              </label>
+              <label class="field">
+                <span>Amount</span>
+                <input data-commercial="${index}" data-key="amount" value="${escapeHtml(row.amount || "")}" placeholder="e.g. £5,000" />
+              </label>
+              <button class="ghost-button remove-commercial" type="button" data-remove-commercial="${index}">Remove</button>
+            </div>`
+        )
+        .join("")
+    : `<div class="empty-commercials">No commercial milestones added. The SOW will show TBD.</div>`;
+
+  $$("#commercialMilestones input").forEach((input) => {
+    input.addEventListener("input", () => {
+      const row = state.commercialMilestones[Number(input.dataset.commercial)];
+      row[input.dataset.key] = input.value;
+      renderPreview();
+    });
+  });
+
+  $$("#commercialMilestones .remove-commercial").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.commercialMilestones.splice(Number(button.dataset.removeCommercial), 1);
+      renderAll();
+    });
+  });
+}
+
+function tidyText(value) {
   return String(value)
     .split(/\n+/)
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => line.replace(/\s+/g, " "))
     .join("\n");
+}
+
+async function improveText(value) {
+  try {
+    const response = await fetch("/api/improve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: value })
+    });
+    const result = await response.json();
+    if (!response.ok || result.error) throw new Error(result.error || "Improve failed");
+    return result.text || tidyText(value);
+  } catch {
+    return tidyText(value);
+  }
 }
 
 function renderPhaseEditor() {
@@ -781,8 +984,6 @@ function renderPreview() {
 
       <h2>7 Dependencies</h2>
       ${bulletList(state.dependenciesText)}
-      <h3>Open Questions To Confirm</h3>
-      <ul>${state.openQuestions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
 
       <h2>8 Change Control</h2>
       ${paragraphs(state.changeControlText)}
@@ -811,14 +1012,15 @@ function renderPreview() {
       <p>Final legal terms should confirm warranty, liability, assignment, third-party rights, counterparts, governing law and jurisdiction, either in this SOW or in the governing master services agreement.</p>` : ""}
 
     <h2>Commercials</h2>
-    ${paragraphs(state.commercialsText)}
-
-    ${optional.length ? `
-      <h2>Items To Confirm Before Finalising</h2>
-      <ul>${optional.map((item) => `<li><strong>${escapeHtml(item.title)}:</strong> ${escapeHtml(item.question)}</li>`).join("")}</ul>` : ""}
+    <table class="bordered-table">
+      <tr><th>Milestone</th><th>Amount</th></tr>
+      ${commercialRows()
+        .map((row) => `<tr><td>${escapeHtml(row.title)}</td><td>${escapeHtml(row.amount)}</td></tr>`)
+        .join("")}
+    </table>
 
     <h2>Signature</h2>
-    <table>
+    <table class="bordered-table signature-table">
       <tr><th>For ${escapeHtml(state.customer)}</th><th>For ${escapeHtml(state.supplier)}</th></tr>
       <tr><td>Name:<br><br>Title:<br><br>Date:</td><td>Name:<br><br>Title:<br><br>Date:</td></tr>
     </table>
@@ -859,6 +1061,7 @@ async function exportDocument(format) {
 
 function renderAll() {
   renderSections();
+  renderCommercialEditor();
   renderPhaseEditor();
   renderPlan();
   renderPreview();
