@@ -21,8 +21,9 @@
           <button class="step is-active" data-panel="intake">1. Intake</button>
           <button class="step" data-panel="sections">2. Sections</button>
           <button class="step" data-panel="timeline">3. Plan</button>
-          <button class="step" data-panel="preview">4. Preview</button>
-          <button class="step" data-panel="saved">5. Saved</button>
+          <button class="step" data-panel="raci">4. RACI</button>
+          <button class="step" data-panel="preview">5. Preview</button>
+          <button class="step" data-panel="saved">6. Saved</button>
         </nav>
 
         <div class="status-box">
@@ -173,6 +174,23 @@
               <h3>Visual Plan</h3>
               <div id="planVisual" class="plan-visual"></div>
             </div>
+          </div>
+        </section>
+
+        <section class="panel" id="raci">
+          <div class="work-panel wide">
+            <div class="panel-heading">
+              <div>
+                <h3>RACI</h3>
+                <p class="helper">Track ownership by activity, date range, and RACI role. Saved drafts keep these rows.</p>
+              </div>
+              <button class="ghost-button" id="addRaciRow" type="button">Add row</button>
+            </div>
+            <label class="field compact-field">
+              <span>Activity column width</span>
+              <input id="raciLeftWidth" type="range" min="220" max="520" step="20" value="300" />
+            </label>
+            <div id="raciEditor" class="raci-editor"></div>
           </div>
         </section>
 

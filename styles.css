@@ -548,6 +548,75 @@ body.is-file-mode .file-warning {
   gap: 10px;
 }
 
+.compact-field {
+  max-width: 360px;
+}
+
+.raci-editor {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
+.raci-table {
+  display: grid;
+  grid-template-columns: minmax(220px, var(--raci-left-width, 300px)) 150px repeat(4, minmax(145px, 1fr)) auto;
+  min-width: 1120px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.raci-header {
+  background: #f6f8fb;
+  color: var(--ink);
+  font-weight: 850;
+  font-size: 0.82rem;
+  padding: 10px;
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.raci-header:first-child {
+  border-left: 0;
+}
+
+.raci-table input,
+.raci-table textarea {
+  width: 100%;
+  min-height: 46px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 10px;
+  color: var(--ink);
+  resize: vertical;
+}
+
+.raci-table .raci-activity {
+  border-left: 0;
+  resize: both;
+  min-width: 220px;
+}
+
+.remove-raci {
+  align-self: stretch;
+  border-radius: 0;
+  border-left-color: var(--line);
+  border-bottom-color: var(--line);
+}
+
+.raci-empty {
+  grid-column: 1 / -1;
+  border: 0;
+  border-radius: 0;
+}
+
+.raci-preview-table {
+  font-size: 0.86rem;
+}
+
 .plan-visual {
   min-width: 930px;
 }

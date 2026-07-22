@@ -381,6 +381,8 @@ def toc_rows(data):
     for key, number, title in optional:
         if optional_enabled(data, key):
             rows.append([number, title])
+    if raci_rows(data):
+        rows.append(["", "RACI"])
     rows.extend([["", "Commercials"], ["", "Signature"]])
     return rows
 
@@ -405,6 +407,24 @@ def commercial_rows(data):
         discount_amount = parse_commercial_amount(discount) if discount else 0
         rows.append(["Total", format_commercial_amount(max(0, subtotal - (discount_amount or 0)))])
     return [["Milestone", "Amount"]] + rows
+
+
+def raci_rows(data):
+    rows = []
+    for row in data.get("raciRows") or []:
+        values = [
+            str(row.get("activity") or "").strip(),
+            str(row.get("dateRange") or "").strip(),
+            str(row.get("responsible") or "").strip(),
+            str(row.get("accountable") or "").strip(),
+            str(row.get("consulted") or "").strip(),
+            str(row.get("informed") or "").strip(),
+        ]
+        if any(values):
+            rows.append([value or "TBD" for value in values])
+    if not rows:
+        return []
+    return [["Activity / deliverable", "Date range", "Responsible", "Accountable", "Consulted", "Informed"]] + rows
 
 
 def parse_commercial_amount(value):
@@ -614,6 +634,10 @@ def build_docx(data):
     add_paragraphs(data.get("changeControlText"))
     doc.add_heading("9 Data Protection, Security And AI Governance", level=1)
     add_paragraphs(data.get("securityText"))
+    rows = raci_rows(data)
+    if rows:
+        doc.add_heading("RACI", level=1)
+        add_table(rows, bordered=True)
     doc.add_heading("Commercials", level=1)
     add_table(commercial_rows(data), bordered=True)
     doc.add_heading("Signature", level=1)
@@ -744,6 +768,11 @@ def build_pdf(data):
         if optional_enabled(data, key):
             heading(title)
             story.append(Paragraph(escape(text), styles["BodyText"]))
+
+    rows = raci_rows(data)
+    if rows:
+        heading("RACI")
+        story.append(make_pdf_table(rows, None, bordered=True))
 
     heading("Commercials")
     story.append(make_pdf_table(commercial_rows(data), None, bordered=True))

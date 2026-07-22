@@ -108,6 +108,33 @@ const sample = {
     { name: "Go Live & Handover", sprint: "Sprint 5", start: 8, weeks: 1, milestone: "POV Playback" },
     { name: "Hypercare", sprint: "Sprint 6", start: 9, weeks: 2, milestone: "Handover Complete" }
   ],
+  raciLeftWidth: 300,
+  raciRows: [
+    {
+      activity: "Discovery, design and scope confirmation",
+      dateRange: "Week 1 - Week 2",
+      responsible: "CloudInteract",
+      accountable: "Informa ETS",
+      consulted: "AWS PACE",
+      informed: "Project stakeholders"
+    },
+    {
+      activity: "Prototype build and integration",
+      dateRange: "Week 3 - Week 6",
+      responsible: "CloudInteract",
+      accountable: "CloudInteract",
+      consulted: "AWS PACE, Informa SMEs",
+      informed: "Informa ETS"
+    },
+    {
+      activity: "UAT, playback and handover",
+      dateRange: "Week 7 - Week 8",
+      responsible: "CloudInteract",
+      accountable: "Informa ETS",
+      consulted: "AWS PACE",
+      informed: "Service Desk and stakeholders"
+    }
+  ],
   proprietaryNotice:
     "© Copyright 2026 CloudInteract Holdings All rights reserved. CloudInteract Ltd Registered Office: 4 Parkside Court, Greenhough Road, Lichfield, Staffordshire, United Kingdom, WS13 7FE.\n\nThe information and data contained or referenced in this Statement of Work document constitute confidential information of CloudInteract Holdings or its affiliates or subsidiaries. In consideration of receipt of this document, the recipient agrees to maintain such information in confidence and not to reproduce or otherwise disclose this information without the express permission of CloudInteract.",
   agreementText:
@@ -213,6 +240,17 @@ function bindInputs() {
   $("#addCommercialMilestone").addEventListener("click", () => {
     state.commercialMilestones.push({ title: "", amount: "" });
     renderAll();
+  });
+
+  $("#addRaciRow").addEventListener("click", () => {
+    state.raciRows.push({ activity: "", dateRange: "", responsible: "", accountable: "", consulted: "", informed: "" });
+    renderAll();
+  });
+
+  $("#raciLeftWidth").addEventListener("input", () => {
+    state.raciLeftWidth = Number($("#raciLeftWidth").value);
+    renderRaciEditor();
+    renderPreview();
   });
 
   $("#saveCurrentSow").addEventListener("click", saveCurrentSow);
@@ -355,6 +393,19 @@ function syncForm() {
     const input = $(`#${id}`);
     if (input) input.value = state[id];
   });
+  const raciLeftWidth = $("#raciLeftWidth");
+  if (raciLeftWidth) raciLeftWidth.value = state.raciLeftWidth || 300;
+}
+
+function normalizeState(data = {}) {
+  return {
+    ...structuredClone(sample),
+    ...data,
+    phases: Array.isArray(data.phases) && data.phases.length ? data.phases : structuredClone(sample.phases),
+    commercialMilestones: Array.isArray(data.commercialMilestones) ? data.commercialMilestones : [],
+    raciLeftWidth: Number(data.raciLeftWidth) || sample.raciLeftWidth,
+    raciRows: Array.isArray(data.raciRows) && data.raciRows.length ? data.raciRows : structuredClone(sample.raciRows)
+  };
 }
 
 function commercialRows() {
@@ -440,7 +491,7 @@ function renderSavedSows(items) {
                 <small>${escapeHtml(item.opportunityNumber || "No opportunity number")} · ${escapeHtml(item.updatedAt || "")}</small>
               </div>
               <div class="saved-actions">
-                <button class="ghost-button" type="button" data-load-sow="${item.id}">Load</button>
+                <button class="ghost-button" type="button" data-load-sow="${item.id}">Open</button>
                 <button class="ghost-button" type="button" data-delete-sow="${item.id}">Delete</button>
               </div>
             </div>`
@@ -449,7 +500,7 @@ function renderSavedSows(items) {
     : `<div class="empty-commercials">No saved SOWs yet.</div>`;
 
   $$("[data-load-sow]").forEach((button) => {
-    button.addEventListener("click", () => loadSavedSow(button.dataset.loadSow));
+    button.addEventListener("click", () => loadSavedSow(button.dataset.loadSow, button));
   });
   $$("[data-delete-sow]").forEach((button) => {
     button.addEventListener("click", () => deleteSavedSow(button.dataset.deleteSow));
@@ -469,18 +520,29 @@ async function saveCurrentSow() {
   await loadSavedSows();
 }
 
-async function loadSavedSow(id) {
-  const response = await fetch(`/api/sows/${id}`);
-  const result = await response.json();
-  if (!response.ok || !result.item) {
-    alert("Could not load saved SOW.");
-    return;
+async function loadSavedSow(id, button) {
+  const original = button?.textContent;
+  if (button) {
+    button.textContent = "Opening...";
+    button.disabled = true;
   }
-  state = { ...structuredClone(sample), ...result.item.data };
-  sectionState = result.item.data.optionalSections || sectionState;
-  syncForm();
-  renderAll();
-  showPanel("preview");
+  try {
+    const response = await fetch(`/api/sows/${id}`);
+    const result = await response.json();
+    if (!response.ok || !result.item) throw new Error(result.error || "Could not load saved SOW.");
+    state = normalizeState(result.item.data);
+    sectionState = { ...Object.fromEntries(optionalSections.map((item) => [item.id, item.defaultStatus])), ...(result.item.data.optionalSections || {}) };
+    syncForm();
+    renderAll();
+    showPanel("raci");
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    if (button) {
+      button.textContent = original;
+      button.disabled = false;
+    }
+  }
 }
 
 async function deleteSavedSow(id) {
@@ -597,6 +659,89 @@ function renderCommercialEditor() {
     });
   });
 
+}
+
+function renderRaciEditor() {
+  const rows = Array.isArray(state.raciRows) ? state.raciRows : [];
+  const width = Number(state.raciLeftWidth) || 300;
+  $("#raciEditor").style.setProperty("--raci-left-width", `${width}px`);
+  $("#raciEditor").innerHTML = `
+    <div class="raci-table" style="--raci-left-width:${width}px">
+      <div class="raci-header">Activity / deliverable</div>
+      <div class="raci-header">Date range</div>
+      <div class="raci-header">Responsible</div>
+      <div class="raci-header">Accountable</div>
+      <div class="raci-header">Consulted</div>
+      <div class="raci-header">Informed</div>
+      <div class="raci-header"></div>
+      ${
+        rows.length
+          ? rows
+              .map(
+                (row, index) => `
+                  <textarea class="raci-activity" data-raci="${index}" data-key="activity" rows="2" placeholder="Activity or deliverable">${escapeHtml(row.activity || "")}</textarea>
+                  <input data-raci="${index}" data-key="dateRange" value="${escapeHtml(row.dateRange || "")}" placeholder="e.g. Week 1 - Week 2" />
+                  <input data-raci="${index}" data-key="responsible" value="${escapeHtml(row.responsible || "")}" placeholder="Responsible" />
+                  <input data-raci="${index}" data-key="accountable" value="${escapeHtml(row.accountable || "")}" placeholder="Accountable" />
+                  <input data-raci="${index}" data-key="consulted" value="${escapeHtml(row.consulted || "")}" placeholder="Consulted" />
+                  <input data-raci="${index}" data-key="informed" value="${escapeHtml(row.informed || "")}" placeholder="Informed" />
+                  <button class="ghost-button remove-raci" type="button" data-remove-raci="${index}">Remove</button>`
+              )
+              .join("")
+          : `<div class="empty-commercials raci-empty">No RACI rows yet.</div>`
+      }
+    </div>`;
+
+  $$("#raciEditor input, #raciEditor textarea").forEach((input) => {
+    input.addEventListener("input", () => {
+      const row = state.raciRows[Number(input.dataset.raci)];
+      row[input.dataset.key] = input.value;
+      renderPreview();
+    });
+  });
+
+  $$("#raciEditor .remove-raci").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.raciRows.splice(Number(button.dataset.removeRaci), 1);
+      renderAll();
+    });
+  });
+}
+
+function raciRows() {
+  return (state.raciRows || [])
+    .map((row) => ({
+      activity: String(row.activity || "").trim(),
+      dateRange: String(row.dateRange || "").trim(),
+      responsible: String(row.responsible || "").trim(),
+      accountable: String(row.accountable || "").trim(),
+      consulted: String(row.consulted || "").trim(),
+      informed: String(row.informed || "").trim()
+    }))
+    .filter((row) => Object.values(row).some(Boolean));
+}
+
+function renderRaciPreview() {
+  const rows = raciRows();
+  if (!rows.length) return "";
+  return `
+    <h2>RACI</h2>
+    <table class="bordered-table raci-preview-table">
+      <tr><th>Activity / deliverable</th><th>Date range</th><th>Responsible</th><th>Accountable</th><th>Consulted</th><th>Informed</th></tr>
+      ${rows
+        .map(
+          (row) => `
+            <tr>
+              <td>${escapeHtml(row.activity)}</td>
+              <td>${escapeHtml(row.dateRange)}</td>
+              <td>${escapeHtml(row.responsible)}</td>
+              <td>${escapeHtml(row.accountable)}</td>
+              <td>${escapeHtml(row.consulted)}</td>
+              <td>${escapeHtml(row.informed)}</td>
+            </tr>`
+        )
+        .join("")}
+    </table>`;
 }
 
 function tidyText(value) {
@@ -970,6 +1115,7 @@ function tocItems() {
   ].forEach(([key, number, title]) => {
     if (isIncluded(key)) items.push([number, title]);
   });
+  if (raciRows().length) items.push(["", "RACI"]);
   items.push(["", "Commercials"], ["", "Signature"]);
   return items;
 }
@@ -1087,6 +1233,8 @@ function renderPreview() {
       <h2>14 Extended Legal Boilerplate</h2>
       <p>Final legal terms should confirm warranty, liability, assignment, third-party rights, counterparts, governing law and jurisdiction, either in this SOW or in the governing master services agreement.</p>` : ""}
 
+    ${renderRaciPreview()}
+
     <h2>Commercials</h2>
     <table class="bordered-table">
       <tr><th>Milestone</th><th>Amount</th></tr>
@@ -1138,6 +1286,7 @@ async function exportDocument(format) {
 function renderAll() {
   renderSections();
   renderCommercialEditor();
+  renderRaciEditor();
   renderPhaseEditor();
   renderPlan();
   renderPreview();
